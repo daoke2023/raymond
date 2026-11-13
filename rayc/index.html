@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RAYC 合约管理后台</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#141a2e; --panel2:#0f1528; --line:#25304f;
+    --txt:#e8ecf7; --muted:#8a95b5; --accent:#5b8cff;
+    --ok:#2ecc71; --warn:#ffb020; --err:#ff5c5c;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(1200px 600px at 50% -200px,#1b2a52 0%,#0b1020 55%) fixed,#0b1020;
+  }
+  .hidden{display:none !important}
+  a{color:var(--accent)}
+  code{background:#0a0f1f;padding:1px 5px;border-radius:4px;font-size:12px}
+
+  /* ---------- 门禁 ---------- */
+  .gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+  .gate-card{
+    width:100%;max-width:420px;background:linear-gradient(180deg,#151c33,#101528);
+    border:1px solid var(--line);border-radius:18px;padding:32px 26px;text-align:center;
+    box-shadow:0 30px 80px rgba(0,0,0,.55);
+  }
+  .logo{
+    width:64px;height:64px;border-radius:18px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#4a7dff,#6a5cff);font-weight:800;letter-spacing:.5px;font-size:17px;
+    box-shadow:0 12px 30px rgba(90,110,255,.35);
+  }
+  .gate-card h1{font-size:19px;margin:0 0 8px}
+  .gate-card .muted{color:var(--muted);font-size:13px;margin:0 0 22px}
+  .gate-msg{margin-top:18px;font-size:13px;color:var(--warn);line-height:1.7;min-height:20px}
+  .btn.big{padding:13px 26px;font-size:14px;width:100%}
+
+  /* ---------- 头部 ---------- */
+  header{
+    position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:12px 20px;background:rgba(15,21,40,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
+  }
+  .brand{font-weight:800;letter-spacing:.5px;font-size:15px;display:flex;align-items:center;gap:9px}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,#4a7dff,#6a5cff)}
+  .spacer{flex:1}
+  .wallet{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);border:1px solid var(--line);padding:6px 10px;border-radius:8px}
+
+  /* ---------- 徽章 & 横幅 ---------- */
+  .badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.3px}
+  .badge.ok{background:rgba(46,204,113,.14);color:#4ee08a;border:1px solid rgba(46,204,113,.35)}
+  .badge.warn{background:rgba(255,176,32,.14);color:#ffc45e;border:1px solid rgba(255,176,32,.35)}
+  .badge.err{background:rgba(255,92,92,.14);color:#ff8080;border:1px solid rgba(255,92,92,.35)}
+  .banner{margin:16px auto 0;max-width:1180px;padding:11px 16px;border-radius:10px;font-size:13px;
+    background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.35);color:#ffc45e;
+    display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+
+  /* ---------- 卡片布局 ---------- */
+  main{max-width:1180px;margin:0 auto;padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .card h2{margin:0 0 14px;font-size:14px;letter-spacing:.3px;display:flex;align-items:center;gap:8px;color:#cdd7f2}
+  .card h2::before{content:"";width:3px;height:14px;border-radius:2px;background:linear-gradient(180deg,#4a7dff,#6a5cff)}
+  .row{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+  .row.inline{flex-direction:row;gap:10px;align-items:flex-end}
+  .row.inline > *{flex:1}
+  label{font-size:12px;color:var(--muted)}
+  input,select{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:9px;padding:10px 12px;font-size:13px;font-family:inherit;transition:.15s;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,140,255,.13)}
+  input::placeholder{color:#4e5878}
+  button{
+    cursor:pointer;border-radius:9px;border:1px solid #2b3760;background:#1b2340;color:var(--txt);
+    padding:10px 15px;font-size:13px;font-weight:600;font-family:inherit;transition:.15s;white-space:nowrap;
+  }
+  button:hover:not(:disabled){background:#232d54;border-color:#3a4a80}
+  button.primary{background:linear-gradient(135deg,#4a7dff,#6a5cff);border:none}
+  button.primary:hover:not(:disabled){filter:brightness(1.12)}
+  button.danger{background:#3a1a22;border-color:#7a2b36;color:#ff9aa5}
+  button.danger:hover:not(:disabled){background:#4a1f26}
+  button.ghost{background:transparent}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .btns{display:flex;gap:10px;flex-wrap:wrap}
+  .hint{font-size:11.5px;color:#68729a;line-height:1.6;margin-top:8px}
+  .hint.warn{color:#ffb84d}
+
+  /* ---------- 键值表 ---------- */
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:9px 14px;font-size:12.5px;align-items:center}
+  .kv .k{color:var(--muted);white-space:nowrap}
+  .kv .v{text-align:right;word-break:break-all;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#dbe4ff}
+  .kv .v.copy{cursor:pointer}
+  .kv .v.copy:hover{color:var(--accent);text-decoration:underline}
+  .divider{height:1px;background:var(--line);margin:13px 0}
+
+  /* ---------- Toast ---------- */
+  .toasts{position:fixed;top:16px;right:16px;z-index:999;display:flex;flex-direction:column;gap:10px;max-width:340px}
+  .toast{
+    padding:12px 16px;border-radius:10px;font-size:13px;line-height:1.5;
+    background:#18203a;border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.45);
+    animation:slidein .22s ease;word-break:break-all;
+  }
+  .toast.ok{border-color:rgba(46,204,113,.5)}
+  .toast.err{border-color:rgba(255,92,92,.55);color:#ffb3b3}
+  @keyframes slidein{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+  .spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.25);
+    border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ================= 门禁 ================= -->
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <div class="logo">RAYC</div>
+    <h1>RAYC 合约管理后台</h1>
+    <p class="muted">仅限项目 Owner 钱包访问</p>
+    <button id="connectBtn" class="btn primary big" onclick="connectWallet()">连接钱包</button>
+    <p id="gateMsg" class="gate-msg"></p>
+  </div>
+</div>
+
+<!-- ================= 主界面 ================= -->
+<div id="app" class="hidden">
+  <header>
+    <div class="brand"><span class="dot"></span>RAYC 管理后台</div>
+    <span id="netBadge" class="badge">--</span>
+    <div class="spacer"></div>
+    <span id="walletAddr" class="wallet">--</span>
+    <button class="ghost" onclick="loadInfo()">↻ 刷新</button>
+  </header>
+
+  <div id="netBanner" class="banner hidden">
+    <span>⚠️ 当前钱包不在 BNB Smart Chain 主网，交易将无法进行。</span>
+    <button class="primary" onclick="switchNetwork()">切换到 BSC 主网</button>
+  </div>
+
+  <main>
+
+    <!-- ========== 1. 合约概览 ========== -->
+    <section class="card">
+      <h2>合约概览</h2>
+      <div class="kv">
+        <div class="k">代币</div>            <div class="v" id="vName">--</div>
+        <div class="k">总供应量</div>        <div class="v" id="vSupply">--</div>
+        <div class="k">交易状态</div>        <div class="v" id="vTrading">--</div>
+        <div class="k">买税 / 卖税</div>     <div class="v"><span id="vBuyTax">--</span> / <span id="vSellTax">--</span></div>
+        <div class="k">税率上限</div>        <div class="v" id="vMaxTax">--</div>
+        <div class="k">自动兑换阈值</div>    <div class="v" id="vThreshold">--</div>
+        <div class="k">合约内 RAYC</div>     <div class="v" id="vContractBal">--</div>
+        <div class="k">待兑换·买入池</div>   <div class="v" id="vBuyPool">--</div>
+        <div class="k">待兑换·卖出池</div>   <div class="v" id="vSellPool">--</div>
+        <div class="k">合约内 USDT</div>     <div class="v" id="vUsdtBal">--</div>
+      </div>
+      <div class="divider"></div>
+      <div class="kv">
+        <div class="k">Owner</div>          <div class="v copy" id="vOwner" onclick="copyText(this.textContent)">--</div>
+        <div class="k">分红地址</div>        <div class="v copy" id="vDiv" onclick="copyText(this.textContent)">--</div>
+        <div class="k">营销地址</div>        <div class="v copy" id="vMkt" onclick="copyText(this.textContent)">--</div>
+        <div class="k">USDT</div>           <div class="v copy" id="vUsdt" onclick="copyText(this.textContent)">--</div>
+        <div class="k">交易对</div>          <div class="v copy" id="vPair" onclick="copyText(this.textContent)">--</div>
+      </div>
+    </section>
+
+    <!-- ========== 2. 交易开关 & 税率 ========== -->
+    <section class="card">
+      <h2>交易开关 &amp; 税率</h2>
+      <div class="row">
+        <label>开启交易（不可撤销）</label>
+        <button id="btnEnableTrading" class="primary" onclick="doEnableTrading()">开启交易</button>
+      </div>
+      <div class="divider"></div>
+      <div class="row inline">
+        <div>
+          <label>买入税（%）</label>
+          <input id="buyTaxInput" type="number" step="0.01" min="0" max="20" placeholder="例如 3" />
+        </div>
+        <div>
+          <label>卖出税（%）</label>
+          <input id="sellTaxInput" type="number" step="0.01" min="0" max="20" placeholder="例如 5" />
+        </div>
+      </div>
+      <button class="primary" onclick="doSetTax()">保存税率</button>
+      <p class="hint">合约以 BPS 计（1% = 100）。上限 20%，当前上限值见概览。</p>
+    </section>
+
+    <!-- ========== 3. 地址管理 ========== -->
+    <section class="card">
+      <h2>分红 / 营销地址</h2>
+      <div class="row">
+        <label>分红合约地址</label>
+        <input id="divAddr" placeholder="0x..." />
+      </div>
+      <div class="row">
+        <label>营销钱包地址</label>
+        <input id="mktAddr" placeholder="0x..." />
+      </div>
+      <button class="primary" onclick="doSetAddresses()">保存地址</button>
+      <p class="hint">两个地址都必须是非零地址，否则交易会回滚。</p>
+    </section>
+
+    <!-- ========== 4. 自动兑换阈值 ========== -->
+    <section class="card">
+      <h2>自动兑换阈值</h2>
+      <div class="row">
+        <label>累积多少枚 RAYC 触发 swap（数量，非 wei）</label>
+        <input id="thrInput" placeholder="例如 5000" />
+      </div>
+      <button class="primary" onclick="doSetThreshold()">保存阈值</button>
+      <p class="hint">卖出时若合约余额 ≥ 阈值，会自动 swap 成 USDT 并分配。</p>
+    </section>
+
+    <!-- ========== 5. 免税白名单 ========== -->
+    <section class="card">
+      <h2>免税白名单</h2>
+      <div class="row">
+        <label>钱包地址</label>
+        <input id="exAddr" placeholder="0x..." />
+      </div>
+      <div class="row inline">
+        <div>
+          <label>状态</label>
+          <select id="exStatus">
+            <option value="true">加入免税</option>
+            <option value="false">移出免税</option>
+          </select>
+        </div>
+        <button class="primary" onclick="doSetExcluded()">保存</button>
+      </div>
+      <div class="btns">
+        <button class="ghost" onclick="checkExcluded()">查询该地址是否免税</button>
+      </div>
+      <p class="hint" id="exResult"></p>
+    </section>
+
+    <!-- ========== 6. 手动操作 ========== -->
+    <section class="card">
+      <h2>手动兑换分发</h2>
+      <p class="hint" style="margin-top:0">立即把合约内累积的 RAYC swap 成 USDT 并按比例分给分红 / 营销地址。</p>
+      <button class="primary" onclick="doManualSwap()">手动 Swap &amp; 分发</button>
+      <div class="divider"></div>
+      <div class="row">
+        <label>提取代币 · 代币合约地址</label>
+        <input id="wdToken" placeholder="0x... （填 RAYC 合约则提取本币）" />
+      </div>
+      <div class="row">
+        <label>接收地址</label>
+        <input id="wdTo" placeholder="0x..." />
+      </div>
+      <div class="row">
+        <label>数量</label>
+        <input id="wdAmount" placeholder="例如 1000" />
+      </div>
+      <button class="primary" onclick="doWithdraw()">提取</button>
+      <p class="hint">提取 RAYC 会直接动用 buyTaxPool / sellTaxPool 对应的余额，请谨慎操作。</p>
+    </section>
+
+    <!-- ========== 7. 危险操作 ========== -->
+    <section class="card" style="border-color:#4a2530">
+      <h2 style="color:#ff9aa5">危险操作</h2>
+      <div class="row">
+        <label>转移 Owner 权限到新地址</label>
+        <input id="newOwner" placeholder="0x..." />
+      </div>
+      <button class="danger" onclick="doTransferOwnership()">转移所有权</button>
+      <div class="divider"></div>
+      <button class="danger" onclick="doRenounce()">放弃所有权（永久）</button>
+      <p class="hint warn">⚠️ 放弃所有权后，本后台的全部功能将永久失效，且无法恢复。</p>
+    </section>
+
+  </main>
+</div>
+
+<div id="toasts" class="toasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+/* ============================================================
+ *  配置区
+ * ============================================================ */
+const CONTRACT_ADDRESS = "0x1AAafebB2247616a8f290115df8d63Acaac47d49";
+const OWNER_ADDRESS    = "0x1a01B7C72bc0C7021a54e9E4027994D8AB6f5998";
+const BSC_CHAIN_ID     = 56n;
+
+const ABI = [
+  // read
+  "function name() view returns (string)",
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+  "function totalSupply() view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+  "function owner() view returns (address)",
+  "function buyTaxBps() view returns (uint256)",
+  "function sellTaxBps() view returns (uint256)",
+  "function MAX_TAX() view returns (uint256)",
+  "function swapThreshold() view returns (uint256)",
+  "function tradingEnabled() view returns (bool)",
+  "function dividendContract() view returns (address)",
+  "function marketingContract() view returns (address)",
+  "function pancakePair() view returns (address)",
+  "function usdt() view returns (address)",
+  "function buyTaxPool() view returns (uint256)",
+  "function sellTaxPool() view returns (uint256)",
+  "function isExcludedFromFee(address) view returns (bool)",
+  // write (owner)
+  "function enableTrading()",
+  "function setTax(uint256 _buyTax, uint256 _sellTax)",
+  "function setAddresses(address _dividend, address _marketing)",
+  "function setSwapThreshold(uint256 _threshold)",
+  "function setExcludedFromFee(address _account, bool _status)",
+  "function manualSwapAndDistribute()",
+  "function withdrawStuckToken(address _token, address _to, uint256 _amount)",
+  "function transferOwnership(address newOwner)",
+  "function renounceOwnership()"
+];
+
+const ERC20_MIN_ABI = [
+  "function decimals() view returns (uint8)",
+  "function balanceOf(address) view returns (uint256)"
+];
+
+/* ============================================================
+ *  全局状态
+ * ============================================================ */
+let provider, signer, contractRO, account = null, chainId = null;
+let tokenDecimals = 18;
+let prefilled = false;
+let busy = false;
+
+const $ = (id) => document.getElementById(id);
+const short = (a) => a ? a.slice(0, 6) + "..." + a.slice(-4) : "--";
+const same = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
+
+/* ============================================================
+ *  Toast
+ * ============================================================ */
+function toast(msg, type = "ok", ms = 4200) {
+  const el = document.createElement("div");
+  el.className = "toast " + type;
+  el.innerHTML = msg;
+  $("toasts").appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; el.style.transition = ".3s"; setTimeout(() => el.remove(), 320); }, ms);
+}
+function copyText(t) {
+  if (!t || t === "--") return;
+  navigator.clipboard?.writeText(t).then(() => toast("已复制：" + short(t))).catch(() => {});
+}
+
+/* ============================================================
+ *  钱包连接 & 权限门禁
+ * ============================================================ */
+async function init() {
+  if (!window.ethereum) {
+    $("gateMsg").innerHTML = '未检测到钱包插件，请先安装 <a href="https://metamask.io/download/" target="_blank">MetaMask</a>（或使用 TokenPocket 等内置浏览器打开）。';
+    $("connectBtn").disabled = true;
+    return;
+  }
+  window.ethereum.on("accountsChanged", () => location.reload());
+  window.ethereum.on("chainChanged", () => location.reload());
+
+  provider = new ethers.BrowserProvider(window.ethereum);
+  try {
+    const accs = await window.ethereum.request({ method: "eth_accounts" });
+    if (accs && accs.length) await handleAccount(accs[0]);
+  } catch (e) { console.warn(e); }
+}
+
+async function connectWallet() {
+  if (!window.ethereum) return;
+  try {
+    const accs = await window.ethereum.request({ method: "eth_requestAccounts" });
+    if (accs.length) await handleAccount(accs[0]);
+  } catch (e) {
+    toast("连接失败：" + (e.message || ""), "err");
+  }
+}
+
+async function handleAccount(addr) {
+  account = addr;
+  provider = new ethers.BrowserProvider(window.ethereum);
+  const net = await provider.getNetwork();
+  chainId = net.chainId;
+
+  /* ---------- 门禁：仅 Owner 地址可进入 ---------- */
+  if (!same(addr, OWNER_ADDRESS)) {
+    $("app").classList.add("hidden");
+    $("gate").classList.remove("hidden");
+    $("gateMsg").innerHTML =
+      `当前钱包 <code>${short(addr)}</code> 无访问权限。<br>` +
+      `请切换到 Owner 钱包 <code>${short(OWNER_ADDRESS)}</code>`;
+    return;
+  }
+
+  signer = await provider.getSigner();
+  contractRO = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+
+  $("gate").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  $("walletAddr").textContent = short(addr);
+  $("walletAddr").title = addr;
+
+  updateNetworkUI();
+  await loadInfo();
+}
+
+function updateNetworkUI() {
+  const ok = chainId === BSC_CHAIN_ID;
+  $("netBadge").textContent = ok ? "BSC 主网" : "链 ID " + chainId;
+  $("netBadge").className = "badge " + (ok ? "ok" : "err");
+  $("netBanner").classList.toggle("hidden", ok);
+}
+
+async function switchNetwork() {
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] });
+  } catch (e) {
+    if (e.code === 4902) {
+      try {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: "0x38",
+            chainName: "BNB Smart Chain",
+            nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+            rpcUrls: ["https://bsc-dataseed.binance.org/"],
+            blockExplorerUrls: ["https://bscscan.com"]
+          }]
+        });
+      } catch (e2) { toast("添加网络失败", "err"); }
+    } else {
+      toast("切换网络失败", "err");
+    }
+  }
+}
+
+/* ============================================================
+ *  工具
+ * ============================================================ */
+function fmt(v, d = 18, maxFrac = 4) {
+  try {
+    const n = Number(ethers.formatUnits(v, d));
+    if (!isFinite(n)) return ethers.formatUnits(v, d);
+    return n.toLocaleString("en-US", { maximumFractionDigits: maxFrac });
+  } catch { return String(v); }
+}
+
+function setBusy(state) {
+  busy = state;
+  document.querySelectorAll("button").forEach(b => {
+    if (b.dataset.always === "1") return;
+    b.disabled = state;
+  });
+}
+
+/* ============================================================
+ *  读取合约数据
+ * ============================================================ */
+async function loadInfo() {
+  if (!contractRO) return;
+  const c = contractRO;
+  try {
+    const [
+      name, symbol, dec, totalSupply, buyTax, sellTax, maxTax,
+      threshold, trading, div, mkt, pair, usdtAddr, buyPool, sellPool, ownerAddr
+    ] = await Promise.all([
+      c.name(), c.symbol(), c.decimals(), c.totalSupply(),
+      c.buyTaxBps(), c.sellTaxBps(), c.MAX_TAX(),
+      c.swapThreshold(), c.tradingEnabled(),
+      c.dividendContract(), c.marketingContract(),
+      c.pancakePair(), c.usdt(),
+      c.buyTaxPool(), c.sellTaxPool(),
+      c.owner()
+    ]);
+
+    tokenDecimals = Number(dec);
+
+    const [contractBal, usdtBal] = await Promise.all([
+      c.balanceOf(CONTRACT_ADDRESS),
+      new ethers.Contract(usdtAddr, ERC20_MIN_ABI, provider)
+        .balanceOf(CONTRACT_ADDRESS).catch(() => 0n)
+    ]);
+
+    $("vName").textContent       = `${name} (${symbol})`;
+    $("vSupply").textContent     = fmt(totalSupply, tokenDecimals, 0);
+    $("vTrading").innerHTML      = trading
+      ? '<span class="badge ok">已开启</span>'
+      : '<span class="badge warn">未开启</span>';
+    $("vBuyTax").textContent     = (Number(buyTax) / 100).toFixed(2) + "%";
+    $("vSellTax").textContent    = (Number(sellTax) / 100).toFixed(2) + "%";
+    $("vMaxTax").textContent     = (Number(maxTax) / 100).toFixed(2) + "%";
+    $("vThreshold").textContent  = fmt(threshold, tokenDecimals, 2);
+    $("vContractBal").textContent= fmt(contractBal, tokenDecimals, 2);
+    $("vBuyPool").textContent    = fmt(buyPool, tokenDecimals, 2);
+    $("vSellPool").textContent   = fmt(sellPool, tokenDecimals, 2);
+    $("vUsdtBal").textContent    = fmt(usdtBal, 18, 2) + " USDT";
+    $("vOwner").textContent      = ownerAddr;
+    $("vDiv").textContent        = div;
+    $("vMkt").textContent        = mkt;
+    $("vUsdt").textContent       = usdtAddr;
+    $("vPair").textContent       = pair;
+
+    $("btnEnableTrading").disabled = !!trading;
+    $("btnEnableTrading").textContent = trading ? "交易已开启" : "开启交易";
+
+    if (!same(ownerAddr, account)) {
+      toast("⚠️ 链上 owner 与当前钱包不一致，写操作将失败", "err", 7000);
+    }
+
+    /* 首次读取时回填表单 */
+    if (!prefilled) {
+      $("buyTaxInput").value = (Number(buyTax) / 100).toString();
+      $("sellTaxInput").value = (Number(sellTax) / 100).toString();
+      $("divAddr").value = div;
+      $("mktAddr").value = mkt;
+      $("thrInput").value = ethers.formatUnits(threshold, tokenDecimals);
+      $("wdTo").value = OWNER_ADDRESS;
+      $("wdToken").value = CONTRACT_ADDRESS;
+      prefilled = true;
+    }
+  } catch (e) {
+    console.error(e);
+    toast("读取合约数据失败：" + (e.shortMessage || e.message || ""), "err");
+  }
+}
+
+/* ============================================================
+ *  统一发送交易
+ * ============================================================ */
+async function sendTx(fnName, ...args) {
+  if (busy) return;
+  if (!signer) return toast("请先连接钱包", "err");
+  if (chainId !== BSC_CHAIN_ID) return toast("请先切换到 BSC 主网", "err");
+
+  try {
+    setBusy(true);
+    const c = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    const tx = await c[fnName](...args);
+    toast(`<span class="spin"></span>已提交：${short(tx.hash)}`);
+    await tx.wait();
+    toast("✅ 交易成功");
+    await loadInfo();
+  } catch (e) {
+    console.error(e);
+    const msg = e?.shortMessage || e?.reason || e?.info?.error?.message || e?.message || "交易失败";
+    toast("❌ " + msg, "err", 6000);
+  } finally {
+    setBusy(false);
+  }
+}
+
+/* ============================================================
+ *  各操作
+ * ============================================================ */
+async function doEnableTrading() {
+  if (!confirm("确认开启交易？\n\n⚠️ 该操作不可撤销，开启后任何人都可以自由买卖。")) return;
+  await sendTx("enableTrading");
+}
+
+async function doSetTax() {
+  const b = parseFloat($("buyTaxInput").value);
+  const s = parseFloat($("sellTaxInput").value);
+  if (isNaN(b) || isNaN(s) || b < 0 || s < 0) return toast("请输入有效的税率", "err");
+  const bb = Math.round(b * 100);
+  const ss = Math.round(s * 100);
+  if (bb > 2000 || ss > 2000) return toast("税率不能超过 20%", "err");
+  if (!confirm(`确认修改税率？\n\n买入税：${b}%\n卖出税：${s}%`)) return;
+  await sendTx("setTax", bb, ss);
+}
+
+async function doSetAddresses() {
+  const d = $("divAddr").value.trim();
+  const m = $("mktAddr").value.trim();
+  if (!ethers.isAddress(d) || !ethers.isAddress(m)) return toast("地址格式不正确", "err");
+  if (d === ethers.ZeroAddress || m === ethers.ZeroAddress) return toast("不能是零地址", "err");
+  if (!confirm(`确认修改地址？\n\n分红：${d}\n营销：${m}`)) return;
+  await sendTx("setAddresses", d, m);
+}
+
+async function doSetThreshold() {
+  const v = $("thrInput").value.trim();
+  if (!v) return toast("请输入阈值数量", "err");
+  let amt;
+  try { amt = ethers.parseUnits(v, tokenDecimals); }
+  catch { return toast("数量格式不正确", "err"); }
+  if (amt <= 0n) return toast("阈值必须大于 0", "err");
+  await sendTx("setSwapThreshold", amt);
+}
+
+async function doSetExcluded() {
+  const a = $("exAddr").value.trim();
+  if (!ethers.isAddress(a)) return toast("地址格式不正确", "err");
+  const st = $("exStatus").value === "true";
+  await sendTx("setExcludedFromFee", a, st);
+}
+
+async function checkExcluded() {
+  const a = $("exAddr").value.trim();
+  if (!ethers.isAddress(a)) return toast("地址格式不正确", "err");
+  try {
+    const v = await contractRO.isExcludedFromFee(a);
+    $("exResult").innerHTML = v
+      ? `✅ <code>${short(a)}</code> 已免除手续费`
+      : `❌ <code>${short(a)}</code> 正常扣税`;
+  } catch (e) {
+    $("exResult").textContent = "查询失败：" + (e.message || "");
+  }
+}
+
+async function doManualSwap() {
+  if (!confirm("确认立即执行 Swap 并分发？")) return;
+  await sendTx("manualSwapAndDistribute");
+}
+
+async function doWithdraw() {
+  const token = $("wdToken").value.trim();
+  const to    = $("wdTo").value.trim();
+  const amtS  = $("wdAmount").value.trim();
+  if (!ethers.isAddress(token)) return toast("代币地址不正确", "err");
+  if (!ethers.isAddress(to))    return toast("接收地址不正确", "err");
+  if (!amtS)                    return toast("请输入数量", "err");
+
+  let dec = 18;
+  try {
+    const erc = new ethers.Contract(token, ERC20_MIN_ABI, provider);
+    dec = Number(await erc.decimals());
+  } catch { /* 保持 18 */ }
+
+  let amt;
+  try { amt = ethers.parseUnits(amtS, dec); }
+  catch { return toast("数量格式不正确", "err"); }
+  if (amt <= 0n) return toast("数量必须大于 0", "err");
+
+  if (!confirm(`确认提取？\n\n代币：${token}\n接收：${to}\n数量：${amtS}`)) return;
+  await sendTx("withdrawStuckToken", token, to, amt);
+}
+
+async function doTransferOwnership() {
+  const a = $("newOwner").value.trim();
+  if (!ethers.isAddress(a)) return toast("地址格式不正确", "err");
+  if (!confirm(`⚠️ 确认把 Owner 权限转移给：\n${a}\n\n转移后你将无法再使用本后台！`)) return;
+  if (!confirm("再次确认：真的要转移所有权吗？")) return;
+  await sendTx("transferOwnership", a);
+}
+
+async function doRenounce() {
+  if (!confirm("⚠️⚠️ 危险操作：放弃所有权后合约将永远无人可管理（税率、地址、兑换全部锁死）。\n\n仍要继续吗？")) return;
+  const typed = prompt('请输入 "RENOUNCE" 以确认放弃所有权：');
+  if (typed !== "RENOUNCE") return toast("已取消", "err");
+  await sendTx("renounceOwnership");
+}
+
+/* ============================================================
+ *  启动
+ * ============================================================ */
+init();
+</script>
+</body>
+</html>
