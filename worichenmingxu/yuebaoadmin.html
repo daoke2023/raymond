@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>余额宝 · 管理后台</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:system-ui;background:radial-gradient(circle at 20% 30%,#0a0f2a,#030617);min-height:100vh;color:#f0f3ff;padding:16px}
+  .container{max-width:1100px;margin:0 auto}
+  .header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;background:rgba(15,25,55,.65);border-radius:24px;padding:16px 22px;margin-bottom:20px;border:1px solid rgba(79,172,254,.3)}
+  .title{font-size:20px;font-weight:800;background:linear-gradient(135deg,#aaffff,#4facfe);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .connect-btn{background:linear-gradient(95deg,#2b6ef0,#1a4ed8);color:#fff;border:none;padding:10px 22px;border-radius:60px;font-weight:600;cursor:pointer;font-size:14px}
+  .wallet{font-family:monospace;font-size:12px;color:#b3ceff;background:rgba(0,0,0,.4);padding:6px 14px;border-radius:40px;border-left:3px solid #facc15}
+  .card{background:rgba(12,22,48,.7);border:1px solid rgba(79,172,254,.25);border-radius:22px;padding:20px;margin-bottom:18px}
+  .card h2{font-size:16px;margin-bottom:14px;border-left:4px solid #facc15;padding-left:12px;color:#facc15}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+  .stat{background:rgba(0,0,0,.35);border:1px solid #2f4b8f;border-radius:14px;padding:12px}
+  .stat .k{font-size:12px;color:#8fa2c6;margin-bottom:6px}
+  .stat .v{font-size:16px;font-weight:700;color:#facc15;word-break:break-all}
+  .row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+  .row label{min-width:140px;font-size:13px;color:#8fa2c6}
+  .row input{flex:1;min-width:120px;padding:9px 13px;background:rgba(0,0,0,.5);border:1px solid #2f4b8f;border-radius:12px;color:#fff;font-size:13px;outline:none}
+  .row input:focus{border-color:#4facfe}
+  .row input[readonly]{color:#8fa2c6;background:rgba(0,0,0,.7)}
+  button.main{background:linear-gradient(95deg,#2b6ef0,#1a4ed8);border:none;padding:10px 20px;border-radius:12px;font-weight:700;color:#fff;cursor:pointer;font-size:13px}
+  button.main:hover{filter:brightness(1.1)}
+  button.danger{background:linear-gradient(95deg,#dc2626,#b91c1c)}
+  button.warn{background:linear-gradient(95deg,#f59e0b,#d97706)}
+  button.green{background:linear-gradient(95deg,#10b981,#059669)}
+  .plan-card{background:rgba(0,0,0,.3);border:1px solid #2f4b8f;border-radius:14px;padding:14px;margin-bottom:10px}
+  .plan-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:600;color:#4facfe}
+  .msg{margin-top:8px;font-size:13px;color:#7effb3}
+  .msg.err{color:#ff7b72}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1f2b;border:1px solid #4facfe;color:#fff;padding:10px 24px;border-radius:40px;font-size:13px;display:none;z-index:999}
+  .toast.show{display:block}
+  .bl-item{display:flex;gap:10px;align-items:center;background:rgba(0,0,0,.3);border:1px solid #2f4b8f;border-radius:12px;padding:10px 14px;margin-bottom:8px;font-family:monospace;font-size:12px}
+  .bl-item span{flex:1;word-break:break-all}
+  .bl-item button{padding:6px 14px;border-radius:20px;font-size:12px;border:none;cursor:pointer;color:#fff;background:#dc2626}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="title">⚙️ 余额宝管理后台</div>
+    <div class="wallet" id="walletInfo">未连接</div>
+    <button class="connect-btn" id="connectBtn">连接钱包</button>
+  </div>
+
+  <div class="card">
+    <h2>📌 合约信息</h2>
+    <div class="row"><label>合约地址</label><input id="contractAddr" readonly value="0xd6B11a7731e6af4491e0327C0987cCd495A85307"></div>
+    <div class="row"><label>当前代币</label><input id="currentToken" readonly></div>
+    <div class="row"><label>代币名称</label><input id="currentName" readonly></div>
+  </div>
+
+  <div class="card">
+    <h2>📊 余额宝统计</h2>
+    <div class="stats">
+      <div class="stat"><div class="k">合约总余额</div><div class="v" id="statBalance">-</div></div>
+      <div class="stat"><div class="k">累计总存入</div><div class="v" id="statDeposited">-</div></div>
+      <div class="stat"><div class="k">当前有效本金</div><div class="v" id="statActive">-</div></div>
+      <div class="stat"><div class="k">累计已支付收益</div><div class="v" id="statReward">-</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>💰 修改存款代币和名称</h2>
+    <div class="row"><label>新代币地址</label><input id="newToken" placeholder="0x..."></div>
+    <div class="row"><label>新代币名称</label><input id="newName" placeholder="例如 RAYC"></div>
+    <button class="main" id="setTokenBtn">保存代币配置</button>
+    <div class="msg" id="tokenMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 最低存款金额</h2>
+    <div class="row"><label>金额</label><input id="minDepositInput" placeholder="例如 1000"></div>
+    <button class="main" id="setMinDepositBtn">保存最低存款</button>
+    <div class="msg" id="minDepositMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>📈 修改产品利率</h2>
+    <div id="plansBox">加载中...</div>
+  </div>
+
+  <div class="card">
+    <h2>💸 提现手续费</h2>
+    <div class="row"><label>手续费(基点)</label><input id="feeInput" placeholder="10 = 0.1%"></div>
+    <button class="main" id="setFeeBtn">保存手续费</button>
+    <div class="msg" id="feeMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>👤 收益收集地址</h2>
+    <div class="row"><label>地址</label><input id="collectorInput" placeholder="0x..."></div>
+    <button class="main" id="setCollectorBtn">保存</button>
+    <div class="msg" id="collectorMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>🚫 黑名单管理</h2>
+    <div class="row"><label>钱包地址</label><input id="blAddress" placeholder="0x..."></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="main danger" id="blAddBtn">加入黑名单</button>
+      <button class="main green" id="blRemoveBtn">移出黑名单</button>
+      <button class="main warn" id="blCheckBtn">查询状态</button>
+    </div>
+    <div class="msg" id="blMsg"></div>
+    <div style="margin-top:14px">
+      <div style="font-size:12px;color:#8fa2c6;margin-bottom:8px">黑名单地址（点击移出）</div>
+      <div id="blList"><div style="font-size:12px;color:#8fa2c6">暂无记录</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>💎 注入分红资金</h2>
+    <div class="row"><label>注入数量</label><input id="injectInput" placeholder="数量"></div>
+    <button class="main" id="injectBtn">注入代币（需先授权）</button>
+    <div class="msg" id="injectMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>🏦 提取合约余额</h2>
+    <div class="row"><label>提取数量</label><input id="surplusInput" placeholder="数量"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="main warn" id="surplusBtn">提取指定数量（不能动本金）</button>
+      <button class="main danger" id="withdrawAllBtn">⚠️ 提取全部余额</button>
+    </div>
+    <div class="msg" id="surplusMsg"></div>
+    <div style="font-size:12px;color:#ff7b72;margin-top:8px">⚠️「提取全部余额」会提走合约内所有代币，包括用户本金，请谨慎！</div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const CONTRACT_ADDRESS = "0xd6B11a7731e6af4491e0327C0987cCd495A85307";
+const $ = id => document.getElementById(id);
+
+const ABI = [
+  "function owner() view returns (address)",
+  "function depositToken() view returns (address)",
+  "function tokenName() view returns (string)",
+  "function getAllPlans() view returns (tuple(uint256 lockDays, uint256 dailyRateBps, bool active)[])",
+  "function withdrawFeeBps() view returns (uint256)",
+  "function feeCollector() view returns (address)",
+  "function minDeposit() view returns (uint256)",
+  "function setPlan(uint256 planId, uint256 lockDays, uint256 dailyRateBps, bool active)",
+  "function setToken(address _token, string _name)",
+  "function setWithdrawFee(uint256 _feeBps)",
+  "function setFeeCollector(address _collector)",
+  "function setMinDeposit(uint256 _min)",
+  "function injectReward(uint256 amount)",
+  "function withdrawSurplus(uint256 amount)",
+  "function withdrawAll()",
+  "function contractBalance() view returns (uint256)",
+  "function totalDeposited() view returns (uint256)",
+  "function totalActivePrincipal() view returns (uint256)",
+  "function totalRewardPaid() view returns (uint256)",
+  "function blacklist(address) view returns (bool)",
+  "function setBlacklist(address user, bool status)"
+];
+const ERC20_ABI = [
+  "function decimals() view returns (uint8)",
+  "function approve(address,uint256) returns (bool)",
+  "function allowance(address,address) view returns (uint256)"
+];
+
+let provider, signer, contract, token, userAddr, plans = [], decimals = 18, tokenSymbol = "RAYC";
+const blRecords = [];
+
+function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2500); }
+function msg(id, text, err=false){ const el=$(id); el.textContent=text; el.className="msg"+(err?" err":""); setTimeout(()=>el.textContent="",6000); }
+function fmt(v){ if(v===undefined||v===null) return "0"; try{ return Number(ethers.utils.formatUnits(v, decimals)).toLocaleString(undefined,{maximumFractionDigits:4}); }catch(e){ return "0"; } }
+function parse(v){ return ethers.utils.parseUnits(String(v), decimals); }
+
+function getInjectedProvider(){
+  if (window.ethereum) return window.ethereum;
+  if (window.okxwallet && window.okxwallet.ethereum) return window.okxwallet.ethereum;
+  if (window.binancew3w && window.binancew3w.ethereum) return window.binancew3w.ethereum;
+  return null;
+}
+
+async function connect(){
+  const btn = $("connectBtn");
+  btn.disabled = true; btn.textContent = "连接中...";
+  try {
+    const inj = getInjectedProvider();
+    if (!inj) { alert("未检测到钱包"); btn.disabled=false; btn.textContent="连接钱包"; return; }
+    await inj.request({ method: "eth_requestAccounts" });
+    provider = new ethers.providers.Web3Provider(inj);
+    const net = await provider.getNetwork();
+    if (Number(net.chainId) !== 56) { alert("请切换到 BSC 主网（Chain ID 56）"); btn.disabled=false; btn.textContent="连接钱包"; return; }
+    signer = provider.getSigner();
+    userAddr = await signer.getAddress();
+    $("walletInfo").textContent = userAddr.slice(0,6)+"..."+userAddr.slice(-4);
+    btn.textContent = "已连接"; btn.disabled = false;
+
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    const owner = await contract.owner();
+    if (owner.toLowerCase() !== userAddr.toLowerCase()) {
+      alert("⚠️ 当前钱包不是合约 owner，无法修改配置。\nowner = " + owner);
+    }
+    const tokenAddr = await contract.depositToken();
+    token = new ethers.Contract(tokenAddr, ERC20_ABI, signer);
+    try { decimals = await token.decimals(); } catch(e) { decimals = 18; }
+    try { tokenSymbol = await contract.tokenName(); } catch(e) {}
+    await loadAll();
+    inj.on && inj.on("accountsChanged", () => window.location.reload());
+  } catch(e) { console.error(e); alert("连接失败：" + (e.message || e)); btn.disabled=false; btn.textContent="连接钱包"; }
+}
+
+async function loadAll(){
+  try {
+    const tokenAddr = await contract.depositToken();
+    const name = await contract.tokenName();
+    const fee = await contract.withdrawFeeBps();
+    const collector = await contract.feeCollector();
+    const minD = await contract.minDeposit();
+    const bal = await contract.contractBalance();
+    const deposited = await contract.totalDeposited();
+    const active = await contract.totalActivePrincipal();
+    const rewardPaid = await contract.totalRewardPaid();
+
+    $("currentToken").value = tokenAddr;
+    $("currentName").value = name;
+    $("feeInput").value = fee.toString();
+    $("collectorInput").value = collector;
+    $("minDepositInput").value = fmt(minD);
+    $("statBalance").textContent = fmt(bal) + " " + name;
+    $("statDeposited").textContent = fmt(deposited) + " " + name;
+    $("statActive").textContent = fmt(active) + " " + name;
+    $("statReward").textContent = fmt(rewardPaid) + " " + name;
+
+    plans = await contract.getAllPlans();
+    let html = "";
+    for (let i = 0; i < plans.length; i++){
+      const p = plans[i];
+      html += `<div class="plan-card">
+        <div class="plan-head"><span>产品 #${i}</span><span>${Number(p.lockDays)===0?"活期":Number(p.lockDays)+"天"}</span></div>
+        <div class="row"><label>锁仓天数</label><input id="days_${i}" value="${Number(p.lockDays)}"></div>
+        <div class="row"><label>日利率(基点)</label><input id="rate_${i}" value="${Number(p.dailyRateBps)}" placeholder="10=0.1%"></div>
+        <div class="row"><label>状态</label>
+          <select id="active_${i}" style="flex:1;padding:9px 13px;background:rgba(0,0,0,.5);border:1px solid #2f4b8f;border-radius:12px;color:#fff">
+            <option value="true" ${p.active?"selected":""}>启用</option>
+            <option value="false" ${!p.active?"selected":""}>禁用</option>
+          </select>
+        </div>
+        <button class="main" onclick="savePlan(${i})">保存产品 #${i}</button>
+      </div>`;
+    }
+    $("plansBox").innerHTML = html;
+  } catch(e) { console.error(e); $("plansBox").innerHTML = '<div class="msg err">加载失败：'+e.message+'</div>'; }
+}
+
+window.savePlan = async function(i){
+  try {
+    const days = parseInt($(`days_${i}`).value);
+    const rate = parseInt($(`rate_${i}`).value);
+    const active = $(`active_${i}`).value === "true";
+    if (isNaN(days) || isNaN(rate)) { toast("请输入有效数字"); return; }
+    toast("提交中...");
+    const tx = await contract.setPlan(i, days, rate, active);
+    await tx.wait();
+    toast("✅ 产品已更新");
+    await loadAll();
+  } catch(e) { console.error(e); toast("❌ " + (e.reason || e.message)); }
+};
+
+async function setToken(){
+  try {
+    const t = $("newToken").value.trim();
+    const n = $("newName").value.trim();
+    if (!ethers.utils.isAddress(t)) { msg("tokenMsg","地址无效", true); return; }
+    if (!n) { msg("tokenMsg","名称不能为空", true); return; }
+    toast("提交中...");
+    const tx = await contract.setToken(t, n);
+    await tx.wait();
+    msg("tokenMsg","✅ 代币配置已更新");
+    await loadAll();
+  } catch(e) { console.error(e); msg("tokenMsg","❌ " + (e.reason || e.message), true); }
+}
+
+async function setMinDeposit(){
+  try {
+    const v = $("minDepositInput").value;
+    if (!v || Number(v) <= 0) { msg("minDepositMsg","请输入有效数字", true); return; }
+    const amount = parse(v);
+    toast("提交中...");
+    const tx = await contract.setMinDeposit(amount);
+    await tx.wait();
+    msg("minDepositMsg","✅ 最低存款已更新");
+    await loadAll();
+  } catch(e) { console.error(e); msg("minDepositMsg","❌ " + (e.reason || e.message), true); }
+}
+
+async function setFee(){
+  try {
+    const f = parseInt($("feeInput").value);
+    if (isNaN(f) || f < 0 || f > 500) { msg("feeMsg","手续费 0~500 基点", true); return; }
+    toast("提交中...");
+    const tx = await contract.setWithdrawFee(f);
+    await tx.wait();
+    msg("feeMsg","✅ 手续费已更新");
+  } catch(e) { console.error(e); msg("feeMsg","❌ " + (e.reason || e.message), true); }
+}
+
+async function setCollector(){
+  try {
+    const a = $("collectorInput").value.trim();
+    if (!ethers.utils.isAddress(a)) { msg("collectorMsg","地址无效", true); return; }
+    toast("提交中...");
+    const tx = await contract.setFeeCollector(a);
+    await tx.wait();
+    msg("collectorMsg","✅ 已更新");
+  } catch(e) { console.error(e); msg("collectorMsg","❌ " + (e.reason || e.message), true); }
+}
+
+async function blAdd(){
+  try {
+    const a = $("blAddress").value.trim();
+    if (!ethers.utils.isAddress(a)) { msg("blMsg","地址无效", true); return; }
+    toast("提交中...");
+    const tx = await contract.setBlacklist(a, true);
+    await tx.wait();
+    msg("blMsg","✅ 已加入黑名单");
+    if (!blRecords.includes(a.toLowerCase())) blRecords.push(a.toLowerCase());
+    await refreshBlacklist();
+  } catch(e) { console.error(e); msg("blMsg","❌ " + (e.reason || e.message), true); }
+}
+
+async function blRemove(){
+  try {
+    const a = $("blAddress").value.trim();
+    if (!ethers.utils.isAddress(a)) { msg("blMsg","地址无效", true); return; }
+    toast("提交中...");
+    const tx = await contract.setBlacklist(a, false);
+    await tx.wait();
+    msg("blMsg","✅ 已移出黑名单");
+    await refreshBlacklist();
+  } catch(e) { console.error(e); msg("blMsg","❌ " + (e.reason || e.message), true); }
+}
+
+async function blCheck(){
+  try {
+    const a = $("blAddress").value.trim();
+    if (!ethers.utils.isAddress(a)) { msg("blMsg","地址无效", true); return; }
+    const st = await contract.blacklist(a);
+    msg("blMsg", st ? "该地址已在黑名单中" : "该地址不在黑名单中");
+  } catch(e) { console.error(e); msg("blMsg","❌ " + (e.reason || e.message), true); }
+}
+
+window.blRemoveByAddr = async function(addr){
+  try {
+    if (!confirm("确定移出黑名单吗？\n" + addr)) return;
+    $("blAddress").value = addr;
+    toast("提交中...");
+    const tx = await contract.setBlacklist(addr, false);
+    await tx.wait();
+    toast("✅ 已移出");
+    await refreshBlacklist();
+  } catch(e) { console.error(e); toast("❌ " + (e.reason || e.message)); }
+};
+
+async function refreshBlacklist(){
+  try {
+    let html = "";
+    for (let i = 0; i < blRecords.length; i++){
+      const a = blRecords[i];
+      const st = await contract.blacklist(a);
+      if (!st) continue;
+      html += `<div class="bl-item"><span>${a}</span><button onclick="blRemoveByAddr('${a}')">移出</button></div>`;
+    }
+    if (!html) html = '<div style="font-size:12px;color:#8fa2c6">暂无记录</div>';
+    $("blList").innerHTML = html;
+  } catch(e) { console.error(e); }
+}
+
+async function injectReward(){
+  try {
+    const v = $("injectInput").value;
+    if (!v || Number(v) <= 0) { msg("injectMsg","请输入有效数量", true); return; }
+    const amount = parse(v);
+    const allowance = await token.allowance(userAddr, CONTRACT_ADDRESS);
+    if (allowance.lt(amount)) {
+      toast("授权中...");
+      const atx = await token.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+      await atx.wait();
+    }
+    toast("注入中...");
+    const tx = await contract.injectReward(amount);
+    await tx.wait();
+    msg("injectMsg","✅ 注入成功");
+    await loadAll();
+  } catch(e) { console.error(e); msg("injectMsg","❌ " + (e.reason || e.message), true); }
+}
+
+async function withdrawSurplus(){
+  try {
+    const v = $("surplusInput").value;
+    if (!v || Number(v) <= 0) { msg("surplusMsg","请输入有效数量", true); return; }
+    const amount = parse(v);
+    toast("提交中...");
+    const tx = await contract.withdrawSurplus(amount);
+    await tx.wait();
+    msg("surplusMsg","✅ 提取成功");
+    await loadAll();
+  } catch(e) { console.error(e); msg("surplusMsg","❌ " + (e.reason || e.message), true); }
+}
+
+async function withdrawAll(){
+  if (!confirm("⚠️ 确认提取合约内全部代币？包括用户本金！")) return;
+  if (!confirm("再次确认：操作不可逆，真的继续？")) return;
+  try {
+    toast("提交中...");
+    const tx = await contract.withdrawAll();
+    await tx.wait();
+    msg("surplusMsg","✅ 已提取全部余额");
+    await loadAll();
+  } catch(e) { console.error(e); msg("surplusMsg","❌ " + (e.reason || e.message), true); }
+}
+
+$("connectBtn").onclick = connect;
+$("setTokenBtn").onclick = setToken;
+$("setMinDepositBtn").onclick = setMinDeposit;
+$("setFeeBtn").onclick = setFee;
+$("setCollectorBtn").onclick = setCollector;
+$("blAddBtn").onclick = blAdd;
+$("blRemoveBtn").onclick = blRemove;
+$("blCheckBtn").onclick = blCheck;
+$("injectBtn").onclick = injectReward;
+$("surplusBtn").onclick = withdrawSurplus;
+$("withdrawAllBtn").onclick = withdrawAll;
+
+window.addEventListener("load", async () => {
+  const inj = getInjectedProvider();
+  if (inj) {
+    try {
+      const a = await inj.request({ method: "eth_accounts" });
+      if (a && a.length > 0) connect();
+    } catch(e) {}
+  }
+});
+</script>
+</body>
+</html>

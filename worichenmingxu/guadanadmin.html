@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAYT 挂单管理后台</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui;background:#0a0f1e;color:#eef;padding:20px}
+.container{max-width:1200px;margin:0 auto}
+h1{margin-bottom:20px;border-left:4px solid #2a6df4;padding-left:16px}
+.card{background:#141b2b;border-radius:20px;padding:20px;margin-bottom:20px;border:1px solid #2a3a5a}
+.card h2{color:#7aa9ff;margin-bottom:14px;font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px}
+input,select{background:#0f1622;border:1px solid #2a3a5a;color:#eef;padding:10px;border-radius:12px;width:100%;margin:6px 0}
+button{background:#2a6df4;border:none;color:#fff;padding:10px 20px;border-radius:30px;cursor:pointer;margin-top:8px;font-size:14px}
+button:hover{filter:brightness(1.1)}
+button.red{background:#8b3c3c}
+button.green{background:#10b981}
+button.orange{background:#f59e0b}
+.log{background:#0f1622;border-radius:14px;padding:10px;font-family:monospace;font-size:12px;max-height:200px;overflow-y:auto;margin-top:12px}
+.row{display:flex;justify-content:space-between;background:#0f1622;padding:10px 14px;border-radius:12px;margin:6px 0;font-size:13px}
+.badge{padding:2px 10px;border-radius:20px;font-size:12px}
+.badge.ok{background:#10b98130;color:#34d399}
+.badge.off{background:#6b728030;color:#9ca3af}
+.warning{color:#ffaa66;font-size:12px;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔐 RAYT 挂单管理后台</h1>
+
+  <div class="card">
+    <button id="connectBtn">连接钱包</button>
+    <div id="walletStatus" style="margin-top:10px;font-family:monospace">未连接</div>
+    <div id="ownerCheck" style="color:#ffaa66;margin-top:8px"></div>
+  </div>
+
+  <div id="adminPanel" style="display:none">
+    <div class="card">
+      <h2>⚙️ 合约配置</h2>
+      <div>挂单合约地址</div>
+      <input type="text" id="cfgTrade" value="0x722Ae3F183B9a2A8cF8A8b154aC6bCF9759372eb">
+      <div>RAYT 代币地址</div>
+      <input type="text" id="cfgRAYT" value="0x88201e877C4FC38D2C1c3AF20A32234629f02405">
+      <div>USDT 地址</div>
+      <input type="text" id="cfgUSDT" value="0x55d398326f99059fF775485246999027B3197955">
+      <button class="green" id="saveCfgBtn">💾 保存配置</button>
+    </div>
+
+    <div class="card">
+      <h2>📌 合约概览</h2>
+      <div class="row"><span>挂单合约</span><span id="tradeAddr">-</span></div>
+      <div class="row"><span>合约托管 RAYT</span><span id="contractRAYT">-</span></div>
+      <div class="row"><span>合约 USDT 余额</span><span id="contractUSDT">-</span></div>
+      <div class="row"><span>总挂单数</span><span id="totalOrders">-</span></div>
+      <div class="row"><span>总成交数</span><span id="totalTrades">-</span></div>
+      <div class="row"><span>暂停状态</span><span id="pauseStatus">-</span></div>
+      <button id="refreshBtn">🔄 刷新</button>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>⚙️ 手续费管理</h2>
+        <div>当前手续费：<span id="curFee">-</span></div>
+        <input type="number" id="newFee" placeholder="手续费基点（200 = 2%）">
+        <button id="setFeeBtn">更新手续费</button>
+      </div>
+
+      <div class="card">
+        <h2>💰 手续费接收地址</h2>
+        <div>当前接收地址：<span id="curFeeRcv" style="font-size:12px;word-break:break-all">-</span></div>
+        <input type="text" id="newFeeRcv" placeholder="新接收地址">
+        <button id="setFeeRcvBtn">更新接收地址</button>
+      </div>
+
+      <div class="card">
+        <h2>📊 挂单限额</h2>
+        <div>最小挂单 RAYT：<span id="curMinRAYT">-</span></div>
+        <div>最小总价 USDT：<span id="curMinUSDT">-</span></div>
+        <input type="number" id="newMinRAYT" placeholder="最小 RAYT（100）">
+        <input type="number" id="newMinUSDT" placeholder="最小 USDT（1）">
+        <button id="setLimitsBtn">更新限额</button>
+      </div>
+
+      <div class="card">
+        <h2>⏸️ 合约控制</h2>
+        <button class="red" id="pauseBtn">暂停交易</button>
+        <button class="green" id="unpauseBtn">恢复交易</button>
+      </div>
+
+      <div class="card">
+        <h2>💵 提取多余 USDT</h2>
+        <div class="warning">只能提取超出托管部分的 USDT</div>
+        <input type="number" id="withdrawAmt" placeholder="提取数量">
+        <input type="text" id="withdrawTo" placeholder="接收地址">
+        <button class="red" id="withdrawBtn">提取</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📋 当前活跃挂单</h2>
+      <button id="scanBtn">扫描活跃挂单（前100条）</button>
+      <div id="ordersList" style="margin-top:12px;max-height:400px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <div class="log" id="log">📋 操作日志</div>
+</div>
+
+<script>
+const ERC20_ABI = [
+    "function balanceOf(address) view returns (uint256)",
+    "function decimals() view returns (uint8)"
+];
+
+const TRADE_ABI = [
+    "function owner() view returns (address)",
+    "function paused() view returns (bool)",
+    "function pause() external",
+    "function unpause() external",
+    "function tradeFeeBps() view returns (uint256)",
+    "function setTradeFee(uint256) external",
+    "function feeReceiver() view returns (address)",
+    "function setFeeReceiver(address) external",
+    "function minOrderRAYT() view returns (uint256)",
+    "function minOrderUSDT() view returns (uint256)",
+    "function setOrderLimits(uint256,uint256) external",
+    "function totalOrders() view returns (uint256)",
+    "function totalTrades() view returns (uint256)",
+    "function totalVolumeRAYT() view returns (uint256)",
+    "function totalVolumeUSDT() view returns (uint256)",
+    "function getOrderCount() view returns (uint256)",
+    "function getOrder(uint256) view returns (tuple(uint256 id,address seller,uint256 raytAmount,uint256 usdtPrice,bool active,uint256 createdAt))",
+    "function withdrawExtraUSDT(address,uint256) external"
+];
+
+let provider, signer, userAddress;
+let trade, rayt, usdt;
+let cfg = {};
+
+const logEl = document.getElementById('log');
+function log(m,e=false){const c=e?'#ff7b72':'#7effb3';logEl.innerHTML+=`<div style="color:${c}">[${new Date().toLocaleTimeString()}] ${m}</div>`;logEl.scrollTop=logEl.scrollHeight;}
+function fmt(v,dec=18){try{return parseFloat(ethers.utils.formatUnits(v,dec)).toFixed(4);}catch(e){return "0";}}
+
+function saveConfig(){
+    cfg = {
+        trade: document.getElementById('cfgTrade').value.trim(),
+        rayt: document.getElementById('cfgRAYT').value.trim(),
+        usdt: document.getElementById('cfgUSDT').value.trim()
+    };
+    // 更换为 v2 防止缓存冲突
+    localStorage.setItem('rayt_trade_cfg_v2', JSON.stringify(cfg));
+    log('配置已保存');
+    location.reload();
+}
+function loadConfig(){
+    const saved = localStorage.getItem('rayt_trade_cfg_v2');
+    if(saved){
+        try{ cfg = JSON.parse(saved); }catch(e){}
+    }
+    if(!cfg.trade){
+        cfg = {
+            trade: "0x722Ae3F183B9a2A8cF8A8b154aC6bCF9759372eb",
+            rayt: "0x88201e877C4FC38D2C1c3AF20A32234629f02405",
+            usdt: "0x55d398326f99059fF775485246999027B3197955"
+        };
+    }
+    document.getElementById('cfgTrade').value = cfg.trade;
+    document.getElementById('cfgRAYT').value = cfg.rayt;
+    document.getElementById('cfgUSDT').value = cfg.usdt;
+}
+document.getElementById('saveCfgBtn').onclick = saveConfig;
+
+document.getElementById('connectBtn').onclick = async () => {
+    if(!window.ethereum) return alert('请安装 MetaMask');
+    try{
+        await window.ethereum.request({method:'eth_requestAccounts'});
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+        const net = await provider.getNetwork();
+        if(net.chainId !== 56){ alert('请切换到 BSC 主网'); return; }
+        document.getElementById('walletStatus').innerText = '已连接: '+userAddress;
+
+        loadConfig();
+        trade = new ethers.Contract(cfg.trade, TRADE_ABI, signer);
+        rayt = new ethers.Contract(cfg.rayt, ERC20_ABI, signer);
+        usdt = new ethers.Contract(cfg.usdt, ERC20_ABI, signer);
+        document.getElementById('tradeAddr').innerText = cfg.trade;
+
+        const owner = await trade.owner();
+        if(owner.toLowerCase() === userAddress.toLowerCase()){
+            document.getElementById('ownerCheck').innerHTML = '✅ 管理员权限已解锁';
+            document.getElementById('adminPanel').style.display = 'block';
+            await refresh();
+        }else{
+            document.getElementById('ownerCheck').innerHTML = '⛔ 非挂单合约 owner';
+        }
+    }catch(e){ alert('连接失败: '+e.message); }
+};
+
+async function refresh(){
+    if(!trade) return;
+    try{
+        const bal = await rayt.balanceOf(cfg.trade);
+        const ubal = await usdt.balanceOf(cfg.trade);
+        document.getElementById('contractRAYT').innerText = fmt(bal) + ' RAYT';
+        document.getElementById('contractUSDT').innerText = fmt(ubal) + ' USDT';
+        document.getElementById('totalOrders').innerText = (await trade.totalOrders()).toString();
+        document.getElementById('totalTrades').innerText = (await trade.totalTrades()).toString();
+
+        const paused = await trade.paused();
+        document.getElementById('pauseStatus').innerHTML = paused ? '<span class="badge off">已暂停</span>' : '<span class="badge ok">运行中</span>';
+
+        const fee = await trade.tradeFeeBps();
+        document.getElementById('curFee').innerText = (fee/100).toFixed(2) + '%';
+
+        document.getElementById('curFeeRcv').innerText = await trade.feeReceiver();
+        document.getElementById('curMinRAYT').innerText = fmt(await trade.minOrderRAYT()) + ' RAYT';
+        document.getElementById('curMinUSDT').innerText = fmt(await trade.minOrderUSDT()) + ' USDT';
+    }catch(e){ log('刷新失败: '+e.message, true); }
+}
+document.getElementById('refreshBtn').onclick = refresh;
+
+document.getElementById('setFeeBtn').onclick = async () => {
+    const v = parseInt(document.getElementById('newFee').value);
+    if(isNaN(v)) return alert('输入有效数值');
+    try{ await (await trade.setTradeFee(v)).wait(); log('✅ 手续费已更新'); await refresh(); }
+    catch(e){ log('失败: '+e.message, true); }
+};
+
+document.getElementById('setFeeRcvBtn').onclick = async () => {
+    const addr = document.getElementById('newFeeRcv').value.trim();
+    if(!ethers.utils.isAddress(addr)) return alert('无效地址');
+    try{ await (await trade.setFeeReceiver(addr)).wait(); log('✅ 手续费接收地址已更新'); await refresh(); }
+    catch(e){ log('失败: '+e.message, true); }
+};
+
+document.getElementById('setLimitsBtn').onclick = async () => {
+    const a = parseFloat(document.getElementById('newMinRAYT').value);
+    const b = parseFloat(document.getElementById('newMinUSDT').value);
+    if(!a || !b) return alert('输入有效数值');
+    try{
+        const aw = ethers.utils.parseEther(a.toString());
+        const bw = ethers.utils.parseEther(b.toString());
+        await (await trade.setOrderLimits(aw, bw)).wait();
+        log('✅ 限额已更新');
+        await refresh();
+    }catch(e){ log('失败: '+e.message, true); }
+};
+
+document.getElementById('pauseBtn').onclick = async () => {
+    try{ await (await trade.pause()).wait(); log('⏸️ 已暂停'); await refresh(); }
+    catch(e){ log('失败: '+e.message, true); }
+};
+document.getElementById('unpauseBtn').onclick = async () => {
+    try{ await (await trade.unpause()).wait(); log('▶️ 已恢复'); await refresh(); }
+    catch(e){ log('失败: '+e.message, true); }
+};
+
+document.getElementById('withdrawBtn').onclick = async () => {
+    const v = parseFloat(document.getElementById('withdrawAmt').value);
+    const to = document.getElementById('withdrawTo').value.trim();
+    if(!v || !ethers.utils.isAddress(to)) return alert('请填写数量和地址');
+    try{
+        const wei = ethers.utils.parseEther(v.toString());
+        await (await trade.withdrawExtraUSDT(to, wei)).wait();
+        log('✅ 已提取');
+        await refresh();
+    }catch(e){ log('失败: '+e.message, true); }
+};
+
+document.getElementById('scanBtn').onclick = async () => {
+    const container = document.getElementById('ordersList');
+    container.innerHTML = '扫描中...';
+    try{
+        const cnt = (await trade.getOrderCount()).toNumber();
+        let html = '';
+        for(let i = 0; i < Math.min(cnt, 100); i++){
+            const o = await trade.getOrder(i);
+            if(!o.active) continue;
+            html += `<div class="row">
+                <span>#${i} ${o.seller.slice(0,10)}...${o.seller.slice(-6)}</span>
+                <span>${fmt(o.raytAmount)} RAYT / ${fmt(o.usdtPrice)} USDT</span>
+            </div>`;
+        }
+        container.innerHTML = html || '暂无活跃挂单';
+    }catch(e){ container.innerHTML = '<p style="color:#ff7b72">加载失败</p>'; }
+};
+
+window.addEventListener('load', loadConfig);
+</script>
+</body>
+</html>

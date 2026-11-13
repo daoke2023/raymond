@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAYC 闪兑合约 · 智能控制台</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        :root { 
+            --bg: #0b0f19; --card: #131b2b; --txt: #e2e8f0; --muted: #94a3b8;
+            --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg); color: var(--txt); padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 20px; }
+        
+        /* 顶部导航 */
+        .header { display: flex; justify-content: space-between; align-items: center; background: var(--card); padding: 15px 25px; border-radius: 12px; border: 1px solid #1e293b; }
+        .header h1 { font-size: 20px; color: #fcd34d; display: flex; align-items: center; gap: 10px; }
+        .wallet-btn { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .wallet-btn:hover { background: #2563eb; }
+        .wallet-info { font-family: monospace; background: #0f172a; padding: 8px 12px; border-radius: 8px; color: var(--success); border: 1px solid #1e293b; display: none; }
+
+        /* 数据卡片 */
+        .grid-data { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .data-card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 8px; }
+        .data-card .label { color: var(--muted); font-size: 13px; }
+        .data-card .value { font-size: 22px; font-weight: bold; color: #60a5fa; }
+
+        /* 控制面板 */
+        .panel { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid #1e293b; margin-bottom: 15px; }
+        .panel h3 { color: #fcd34d; margin-bottom: 15px; border-bottom: 1px solid #1e293b; padding-bottom: 10px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px; }
+        label { color: var(--muted); font-size: 13px; }
+        input { background: #0f172a; border: 1px solid #334155; color: white; padding: 12px; border-radius: 8px; outline: none; font-size: 14px; transition: 0.2s; }
+        input:focus { border-color: var(--primary); }
+        button { padding: 12px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; color: white; font-size: 14px; white-space: nowrap; }
+        button:hover { filter: brightness(1.1); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-blue { background: var(--primary); }
+        .btn-green { background: var(--success); }
+        .btn-red { background: var(--danger); }
+        .btn-orange { background: var(--warning); color: #000; }
+
+        /* 提示信息 */
+        #statusBox { display: none; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 10px; }
+        .s-success { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid #10b981; }
+        .s-error { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid #ef4444; }
+        .s-warn { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid #f59e0b; }
+
+        /* 黑名单列表 */
+        .tag-box { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .tag { background: #1e293b; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-family: monospace; display: flex; align-items: center; gap: 8px; }
+        .tag span { color: var(--danger); cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 头部 -->
+    <div class="header">
+        <h1>⚙️ RAYC 闪兑合约 (V9) 控制台</h1>
+        <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">连接管理员钱包</button>
+        <div class="wallet-info" id="walletInfo">未连接</div>
+    </div>
+
+    <div id="statusBox"></div>
+
+    <!-- 数据大屏 -->
+    <div class="grid-data">
+        <div class="data-card">
+            <div class="label">当前合约 Owner</div>
+            <div class="value" id="dataOwner" style="font-size: 14px; word-break: break-all; color: var(--muted);">加载中...</div>
+        </div>
+        <div class="data-card">
+            <div class="label">池子 RAYC-A 余额</div>
+            <div class="value" id="dataPoolBalance" style="color: var(--success);">--</div>
+        </div>
+        <div class="data-card">
+            <div class="label">当前兑换状态</div>
+            <div class="value" id="dataSwapStatus">--</div>
+        </div>
+        <div class="data-card">
+            <div class="label">RAYC-A 设定价格</div>
+            <div class="value" id="dataPrice" style="color: #fcd34d;">-- USDT</div>
+        </div>
+    </div>
+
+    <!-- 功能面板区 -->
+    <div id="adminPanel" style="display: none;">
+        
+        <!-- 面板 1：价格与开关 -->
+        <div class="panel">
+            <h3>💲 核心参数配置</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>修改 RAYC-A 金本位价格 (USDT)</label>
+                    <input type="number" id="newPrice" placeholder="例如 0.1" step="0.0001">
+                </div>
+                <button class="btn-blue" onclick="updatePrice()">保存价格</button>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>每次兑换扣除的 RAYT 手续费 (枚)</label>
+                    <input type="number" id="newFee" placeholder="例如 100">
+                </div>
+                <button class="btn-blue" onclick="updateFee()">保存手续费</button>
+            </div>
+            <div class="form-row" style="margin-top: 10px;">
+                <button class="btn-green" onclick="toggleSwap(true)">开启兑换</button>
+                <button class="btn-red" onclick="toggleSwap(false)">关闭兑换</button>
+            </div>
+        </div>
+
+        <!-- 面板 2：资金池管理 -->
+        <div class="panel">
+            <h3>💧 资金池管理</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>注入 RAYC-A (需要先授权，合约需有足够代币供用户兑换)</label>
+                    <input type="number" id="depositAmount" placeholder="输入注入数量">
+                </div>
+                <button class="btn-green" onclick="depositPool()">授权并注入</button>
+            </div>
+            <div class="form-row" style="margin-top: 20px; border-top: 1px dashed #334155; padding-top: 20px;">
+                <div class="form-group">
+                    <label>提取误转的其他代币 (不可提取 RAYC 和 RAYC-A)</label>
+                    <input type="text" id="wdToken" placeholder="代币合约地址 0x...">
+                </div>
+                <div class="form-group">
+                    <label>数量</label>
+                    <input type="number" id="wdAmount" placeholder="提取数量">
+                </div>
+                <button class="btn-orange" onclick="withdrawExtra()">安全提取</button>
+            </div>
+        </div>
+
+        <!-- 面板 3：黑白名单与关联 -->
+        <div class="panel">
+            <h3>🛡️ 权限与名单管理</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>设置托管合约地址 (用于验证 VIP)</label>
+                    <input type="text" id="custodyVault" placeholder="0x...">
+                </div>
+                <button class="btn-blue" onclick="setCustody()">保存</button>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>设置手续费接收地址</label>
+                    <input type="text" id="feeReceiver" placeholder="0x...">
+                </div>
+                <button class="btn-blue" onclick="setFeeReceiver()">保存</button>
+            </div>
+            
+            <div class="form-row" style="margin-top: 20px; border-top: 1px dashed #334155; padding-top: 20px;">
+                <div class="form-group">
+                    <label>黑白名单地址 (支持批量，用逗号分隔)</label>
+                    <input type="text" id="listAddresses" placeholder="0x123..., 0x456...">
+                </div>
+            </div>
+            <div class="form-row">
+                <button class="btn-red" onclick="batchBlacklist(true)">批量拉黑</button>
+                <button class="btn-green" onclick="batchBlacklist(false)">解除黑名单</button>
+                <button class="btn-blue" onclick="batchWhitelist(true)">加入VIP白名单</button>
+                <button class="btn-orange" onclick="batchWhitelist(false)">移出VIP白名单</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // ⚠️ 自动填入你部署的 V9 合约地址
+    const CONTRACT_ADDRESS = "0x465A906Bb36d58e23A645B946f3B6c0007dAF622"; 
+    const RAYC_A_ADDRESS = "0x3479bfA6e0f681A3763961b95759f477DE7Cc9a9";
+
+    const ABI = [
+        "function owner() view returns (address)",
+        "function priceRaycA() view returns (uint256)",
+        "function feeRAYTAmount() view returns (uint256)",
+        "function swapEnabled() view returns (bool)",
+        "function custodyVault() view returns (address)",
+        "function feeReceiver() view returns (address)",
+        "function setPriceRaycA(uint256 _newPrice)",
+        "function setSwapConfig(bool _enabled, uint256 _feeRayt)",
+        "function depositRaycA(uint256 amount)",
+        "function withdrawExtraTokens(address tokenAddr, address to, uint256 amount)",
+        "function setCustodyVault(address _vault)",
+        "function setFeeReceiver(address _receiver)",
+        "function setBlacklist(address[] calldata accounts, bool status)",
+        "function setManualWhitelist(address[] calldata accounts, bool status)"
+    ];
+
+    const ERC20_ABI = [
+        "function balanceOf(address) view returns (uint256)",
+        "function decimals() view returns (uint8)",
+        "function approve(address spender, uint256 amount) returns (bool)",
+        "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+
+    let provider, signer, userAddress, contract, raycAContract;
+    let globalAdminAddr = "";
+
+    const $ = id => document.getElementById(id);
+
+    function showStatus(msg, type = 's-success') {
+        const box = $("statusBox");
+        box.style.display = 'block';
+        box.className = type;
+        box.innerHTML = msg;
+        if(type !== 's-warn') {
+            setTimeout(() => { box.style.display = 'none'; }, 5000);
+        }
+    }
+
+    async function connectWallet() {
+        if (!window.ethereum) return alert("请安装 MetaMask 或使用 TP/OKX 钱包！");
+        
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            userAddress = accounts[0];
+            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            signer = provider.getSigner();
+
+            const net = await provider.getNetwork();
+            if (net.chainId !== 56) return alert("⚠️ 请切换到 BSC 主网！");
+
+            contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            raycAContract = new ethers.Contract(RAYC_A_ADDRESS, ERC20_ABI, signer);
+
+            $("walletInfo").innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+            $("walletInfo").style.display = "block";
+            $("connectBtn").style.display = "none";
+            $("adminPanel").style.display = "block";
+
+            await loadData();
+        } catch(e) {
+            alert("连接失败: " + e.message);
+        }
+    }
+
+    async function loadData() {
+        try {
+            // 读取基础数据
+            globalAdminAddr = await contract.owner();
+            const isSwap = await contract.swapEnabled();
+            const price = await contract.priceRaycA();
+            const fee = await contract.feeRAYTAmount();
+            const custody = await contract.custodyVault();
+            const receiver = await contract.feeReceiver();
+            
+            // 读取池子代币余额
+            const poolBal = await raycAContract.balanceOf(CONTRACT_ADDRESS);
+
+            // 渲染数据
+            $("dataOwner").innerText = globalAdminAddr;
+            if(globalAdminAddr.toLowerCase() === userAddress.toLowerCase()) {
+                $("dataOwner").style.color = "#10b981";
+                $("dataOwner").innerText += " (你拥有权限)";
+            } else {
+                $("dataOwner").style.color = "#ef4444";
+                $("dataOwner").innerText += " (⚠️ 你非Owner，无修改权限)";
+                showStatus("⚠️ 注意：当前连接的钱包不是合约 Owner，你只能查看数据，无法进行修改操作。", "s-warn");
+            }
+
+            $("dataPoolBalance").innerText = parseFloat(ethers.utils.formatEther(poolBal)).toLocaleString() + " RAYC-A";
+            $("dataSwapStatus").innerText = isSwap ? "✅ 开启中" : "❌ 已关闭";
+            $("dataSwapStatus").style.color = isSwap ? "#10b981" : "#ef4444";
+            $("dataPrice").innerText = parseFloat(ethers.utils.formatEther(price)) + " USDT";
+
+            // 填充表单
+            $("newPrice").value = parseFloat(ethers.utils.formatEther(price));
+            $("newFee").value = parseFloat(ethers.utils.formatEther(fee));
+            $("custodyVault").value = custody;
+            $("feeReceiver").value = receiver;
+
+        } catch(e) {
+            showStatus("读取合约数据失败: " + e.message, "s-error");
+        }
+    }
+
+    // 执行交易通用函数
+    async function sendTx(promiseFunc) {
+        if(!signer) return alert("请先连接钱包");
+        if(globalAdminAddr.toLowerCase() !== userAddress.toLowerCase()) return alert("你不是 Owner，无权限操作！");
+        
+        try {
+            showStatus("⏳ 正在等待钱包确认交易...", "s-warn");
+            const tx = await promiseFunc();
+            showStatus(`⏳ 交易已发送，等待上链... Hash: ${tx.hash.slice(0,10)}`, "s-warn");
+            await tx.wait();
+            showStatus("✅ 交易成功！", "s-success");
+            await loadData(); // 刷新数据
+        } catch(e) {
+            console.error(e);
+            showStatus("❌ 操作失败: " + (e.reason || e.message), "s-error");
+        }
+    }
+
+    // ============ 操作函数 ============
+
+    function updatePrice() {
+        const val = $("newPrice").value;
+        if (!val || isNaN(val) || val <= 0) return alert("请输入正确的价格！");
+        const p = ethers.utils.parseEther(val.toString());
+        sendTx(() => contract.setPriceRaycA(p));
+    }
+
+    function updateFee() {
+        const fee = $("newFee").value || "0";
+        const price = $("newPrice").value;
+        const p = ethers.utils.parseEther(price.toString());
+        const f = ethers.utils.parseEther(fee.toString());
+        // 设置手续费时，需要带上当前是否开启的状态
+        const isSwap = $("dataSwapStatus").innerText.includes("开启");
+        sendTx(() => contract.setSwapConfig(isSwap, f));
+    }
+
+    function toggleSwap(enable) {
+        const fee = $("newFee").value || "0";
+        const f = ethers.utils.parseEther(fee.toString());
+        sendTx(() => contract.setSwapConfig(enable, f));
+    }
+
+    async function depositPool() {
+        const amt = $("depositAmount").value;
+        if (!amt || amt <= 0) return alert("请输入注入数量");
+        const amtWei = ethers.utils.parseEther(amt);
+        
+        try {
+            const allowance = await raycAContract.allowance(userAddress, CONTRACT_ADDRESS);
+            if (allowance.lt(amtWei)) {
+                showStatus("⏳ 正在授权 RAYC-A...", "s-warn");
+                const txApp = await raycAContract.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+                await txApp.wait();
+            }
+            sendTx(() => contract.depositRaycA(amtWei));
+        } catch(e) {
+            showStatus("❌ 授权或注入失败: " + e.message, "s-error");
+        }
+    }
+
+    function withdrawExtra() {
+        const token = $("wdToken").value.trim();
+        const amt = $("wdAmount").value;
+        if (!ethers.utils.isAddress(token)) return alert("代币地址格式错误");
+        if (!amt || amt <= 0) return alert("请输入提取数量");
+        
+        // 注意：提取的代币精度可能不是 18，这里简化处理用 18，如遇特殊代币需手动调整
+        const amtWei = ethers.utils.parseEther(amt); 
+        sendTx(() => contract.withdrawExtraTokens(token, userAddress, amtWei));
+    }
+
+    function setCustody() {
+        const addr = $("custodyVault").value.trim();
+        if (!ethers.utils.isAddress(addr)) return alert("地址格式错误");
+        sendTx(() => contract.setCustodyVault(addr));
+    }
+
+    function setFeeReceiver() {
+        const addr = $("feeReceiver").value.trim();
+        if (!ethers.utils.isAddress(addr)) return alert("地址格式错误");
+        sendTx(() => contract.setFeeReceiver(addr));
+    }
+
+    // 解析逗号分隔的地址
+    function parseAddresses() {
+        const raw = $("listAddresses").value;
+        const list = raw.split(/[\s,，]+/).filter(a => ethers.utils.isAddress(a.trim())).map(a => a.trim());
+        if(list.length === 0) {
+            alert("未找到有效地址，请用逗号分隔！");
+            return null;
+        }
+        return list;
+    }
+
+    function batchBlacklist(status) {
+        const list = parseAddresses();
+        if(!list) return;
+        sendTx(() => contract.setBlacklist(list, status));
+    }
+
+    function batchWhitelist(status) {
+        const list = parseAddresses();
+        if(!list) return;
+        sendTx(() => contract.setManualWhitelist(list, status));
+    }
+
+</script>
+</body>
+</html>

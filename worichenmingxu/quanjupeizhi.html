@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全局合约配置与授权中心</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui;background:#0a0f1e;color:#eef;padding:20px}
+.container{max-width:1400px;margin:0 auto}
+h1{margin-bottom:20px;border-left:4px solid #38bdf8;padding-left:16px;font-size:22px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:#141b2b;border-radius:20px;padding:24px;margin-bottom:20px;border:1px solid #2a3a5a}
+.card h2{color:#7aa9ff;margin-bottom:16px;font-size:17px;border-bottom:1px solid #2a3a5a;padding-bottom:10px;}
+label{display:block;font-size:13px;color:#94a3b8;margin-top:10px;margin-bottom:4px}
+label span{color:#f59e0b;font-size:11px;margin-left:8px;}
+input{background:#0f1622;border:1px solid #2a3a5a;color:#fff;padding:10px;border-radius:10px;width:100%;font-family:monospace;font-size:12px;transition:0.2s;}
+input:focus{outline:none;border-color:#38bdf8;box-shadow:0 0 10px rgba(56,189,248,0.2)}
+button{background:#2a6df4;border:none;color:#fff;padding:12px 24px;border-radius:30px;cursor:pointer;font-size:14px;font-weight:bold;width:100%;margin-top:10px;transition:0.2s;}
+button:hover{filter:brightness(1.1)}
+button.green{background:#10b981}
+button.orange{background:#f59e0b}
+button.purple{background:#8b5cf6}
+button.red{background:#8b3c3c}
+.log{background:#0f1622;border-radius:12px;padding:12px;font-family:monospace;font-size:12px;max-height:400px;overflow-y:auto;margin-top:20px;border:1px solid #2a3a5a;}
+.status{color:#ef4444;font-weight:bold;margin-top:10px;text-align:center;}
+.step-box{background:#0f1622;border:1px solid #2a3a5a;border-radius:12px;padding:12px;margin-bottom:10px;}
+.step-box h4{color:#7aa9ff;font-size:14px;margin-bottom:6px;}
+.step-box p{font-size:12px;color:#94a3b8;}
+.owner-check{background:#0f1622;border-radius:12px;padding:12px;margin-top:12px;font-size:12px;line-height:1.9;font-family:monospace;}
+.owner-check .ok{color:#10b981}
+.owner-check .bad{color:#ef4444}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>⚙️ 全局合约配置与授权中心</h1>
+
+  <div class="card" style="text-align:center; margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center;">
+    <div style="text-align:left;">
+        <h2 style="border:none; margin:0; padding:0;">管理员权限验证</h2>
+        <div id="walletStatus" style="margin-top:5px;font-family:monospace;color:#94a3b8;font-size:12px;">未连接</div>
+    </div>
+    <div>
+        <button id="connectBtn" style="width:250px; margin:0; background:#8b5cf6;">🔗 连接超级管理员钱包</button>
+    </div>
+  </div>
+  <div id="authStatus" class="status" style="margin-bottom:20px;"></div>
+
+  <div id="mainPanel" style="display:none">
+    <div class="grid">
+      
+      <!-- 左侧：合约地址配置 -->
+      <div class="card">
+        <h2>📍 合约地址配置 (LocalStorage)</h2>
+        <p style="font-size:12px; color:#94a3b8; margin-bottom:10px;">如果某合约重新部署，请在此更新并保存。</p>
+        
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">
+            <div>
+                <label>1. USDT</label>
+                <input type="text" id="cfgUSDT">
+                <label>2. RAYT <span>(托管的税费)</span></label>
+                <input type="text" id="cfgRAYT">
+                <label>3. RAYC <span>(托管挖矿产出)</span></label>
+                <input type="text" id="cfgRAYC">
+                <label>4. RAYC/USDT 交易对</label>
+                <input type="text" id="cfgPair">
+                <label>5. 推荐关系</label>
+                <input type="text" id="cfgReferral">
+            </div>
+            <div>
+                <label>6. 分红合约</label>
+                <input type="text" id="cfgDividend">
+                <label>7. 工作室节点</label>
+                <input type="text" id="cfgWorkshop">
+                <label>8. 挖矿合约</label>
+                <input type="text" id="cfgMining">
+                <label>9. 托管合约 <span>(内含RAYT/RAYC固定地址)</span></label>
+                <input type="text" id="cfgCustody">
+                <label>10. 营销合约</label>
+                <input type="text" id="cfgMarketing">
+            </div>
+        </div>
+
+        <button class="green" id="saveBtn" style="margin-top:20px;">💾 保存最新地址配置</button>
+        <div class="warning" style="color:#f59e0b; font-size:12px; margin-top:10px;">
+            💡 提示：托管合约在部署时构造函数已写死 RAYT 和 RAYC 地址。如果更换了 RAYT 或 RAYC，托管合约必须重新部署！此处的 RAYT/RAYC 仅作前端读取展示用。
+        </div>
+      </div>
+
+      <!-- 右侧：合约授权关联 -->
+      <div class="card">
+        <h2>🔗 合约互联与授权 (一键接线)</h2>
+        <p style="font-size:12px; color:#ffaa66; margin-bottom:10px;">⚠️ 更换任何合约后，必须重新执行以下授权！请确保左侧地址已保存。</p>
+
+        <div class="step-box">
+            <h4>步骤 1：推荐关系授权</h4>
+            <p>让推荐关系合约允许“工作室”和“挖矿”写入数据。</p>
+            <button class="orange" onclick="execStep1()">执行推荐关系授权</button>
+        </div>
+
+        <div class="step-box">
+            <h4>步骤 2：分红与节点互相绑定</h4>
+            <p>分红合约绑定工作室节点，工作室节点绑定分红合约。</p>
+            <button class="orange" onclick="execStep2()">执行分红节点绑定</button>
+        </div>
+
+        <div class="step-box">
+            <h4>步骤 3：挖矿关联配置</h4>
+            <p>挖矿合约绑定“工作室”、“托管VIP验证”和“推荐关系”。</p>
+            <button class="orange" onclick="execStep3()">执行挖矿关联</button>
+        </div>
+
+        <div class="step-box">
+            <h4>步骤 4：托管 / RAYC / 营销 绑定</h4>
+            <p>托管绑定推荐/工作室/交易对，设置RAYT税接收地址，RAYC 绑定分红+营销（关键：营销合约通过 RAYC 的 setAddresses 完成绑定）。</p>
+            <button class="orange" onclick="execStep4()">执行托管与代币绑定</button>
+        </div>
+
+        <button class="purple" style="margin-top:20px; font-size:16px;" onclick="execAll()">🚀 一键执行全量授权 (推荐)</button>
+      </div>
+    </div>
+
+    <!-- Owner 一致性检查 -->
+    <div class="card">
+      <h2>🔍 各合约 Owner 一致性检查</h2>
+      <p style="font-size:12px; color:#94a3b8; margin-bottom:10px;">执行授权前，先确认所有合约的 owner 都是当前连接的钱包。如果不是，写操作会失败。</p>
+      <button class="green" onclick="checkAllOwners()">🔍 检查所有合约 Owner</button>
+      <div id="ownerCheckResult" class="owner-check" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <h2>📋 执行日志</h2>
+      <div class="log" id="log">等待操作...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ⚡ 部署钱包（已改）
+const SUPER_ADMIN = "0x1a01B7C72bc0C7021a54e9E4027994D8AB6f5998";
+
+// ⚡ 全部换成新部署地址
+const DEFAULT_CONFIG = {
+    usdt:      "0x55d398326f99059fF775485246999027B3197955",
+    rayt:      "0x88201e877C4FC38D2C1c3AF20A32234629f02405",
+    rayc:      "0x1AAafebB2247616a8f290115df8d63Acaac47d49",
+    pair:      "0x5a01c7D5a8357e3602a0D82b013EF821f03C551B",
+    referral:  "0x2EA13E42C0e05678D50d010Ca2D390742626EA9e",
+    marketing: "0x74927Be44937CeD436F0d1c7e5e7068EdEe1B676",
+    dividend:  "0x06e57ef8f472736484b43a07393264d87114eb40",
+    workshop:  "0xff625a83ed6a527061020954E00F8c52Ee9BC1BD",
+    mining:    "0x8B58dFa04cb6fA855263a6B60AA939D6e38eEcA9",
+    custody:   "0xaB7920588bCB195C9F714FDbaBe31D039c52DF43"
+};
+
+const ABI = {
+    referral: ["function setAuthorizedContract(address,bool)"],
+    dividend: ["function setNodeContract(address)","function owner() view returns (address)"],
+    workshop: ["function setDividendContract(address)","function owner() view returns (address)"],
+    mining: [
+        "function setWorkshopNode(address)", 
+        "function setVIPChecker(address)", 
+        "function setReferralRegistry(address)",
+        "function owner() view returns (address)"
+    ],
+    custody: [
+        "function setWorkshopNode(address)", 
+        "function setReferralRegistry(address)", 
+        "function setRaycUsdtPair(address)", 
+        "function setRaytTaxReceiver(address)",
+        "function owner() view returns (address)"
+    ],
+    // ⚡ RAYC 合约用 setAddresses(dividend, marketing) 一次性设置，不是分开的两个函数
+    rayc: [
+        "function setAddresses(address,address)",
+        "function owner() view returns (address)"
+    ],
+    // 营销合约没有需要绑定的（独立合约），只需要 RAYC 指向它
+    marketing: [
+        "function owner() view returns (address)"
+    ]
+};
+
+let provider, signer, userAddress;
+let C = {};
+let cfg = {};
+
+const logEl = document.getElementById('log');
+function log(m, e = false) {
+    const color = e ? '#ef4444' : '#10b981';
+    logEl.innerHTML += `<div style="color:${color}; margin-bottom:4px;">[${new Date().toLocaleTimeString()}] ${m}</div>`;
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+function getConfig() {
+    let saved = {};
+    try {
+        const raw = localStorage.getItem('GLOBAL_RAYC_CONFIG_V2');
+        if(raw) saved = JSON.parse(raw);
+    } catch(e) {}
+    return Object.assign({}, DEFAULT_CONFIG, saved);
+}
+
+function loadConfigToUI() {
+    cfg = getConfig();
+    document.getElementById('cfgUSDT').value = cfg.usdt;
+    document.getElementById('cfgRAYT').value = cfg.rayt;
+    document.getElementById('cfgRAYC').value = cfg.rayc;
+    document.getElementById('cfgPair').value = cfg.pair;
+    document.getElementById('cfgReferral').value = cfg.referral;
+    document.getElementById('cfgMarketing').value = cfg.marketing;
+    document.getElementById('cfgDividend').value = cfg.dividend;
+    document.getElementById('cfgWorkshop').value = cfg.workshop;
+    document.getElementById('cfgMining').value = cfg.mining;
+    document.getElementById('cfgCustody').value = cfg.custody;
+}
+
+document.getElementById('connectBtn').onclick = async () => {
+    if(!window.ethereum) return alert('请安装 MetaMask 或 TP 钱包');
+    try {
+        await window.ethereum.request({method:'eth_requestAccounts'});
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+        
+        const net = await provider.getNetwork();
+        if(net.chainId !== 56){ alert('请切换到 BSC 主网'); return; }
+
+        if(userAddress.toLowerCase() !== SUPER_ADMIN.toLowerCase()) {
+            document.getElementById('walletStatus').innerText = '当前连接: ' + userAddress;
+            document.getElementById('authStatus').innerText = '⛔ 拒绝访问：您不是部署者钱包！';
+            document.getElementById('mainPanel').style.display = 'none';
+            return;
+        }
+
+        document.getElementById('walletStatus').innerText = '已连接管理员: ' + userAddress;
+        document.getElementById('authStatus').innerText = '✅ 权限校验通过';
+        document.getElementById('authStatus').style.color = '#10b981';
+        document.getElementById('mainPanel').style.display = 'block';
+        
+        loadConfigToUI();
+        initContracts();
+        log('钱包已连接，配置已加载');
+    } catch(e) { alert(e.message); }
+};
+
+document.getElementById('saveBtn').onclick = () => {
+    const newCfg = {
+        usdt: document.getElementById('cfgUSDT').value.trim(),
+        rayt: document.getElementById('cfgRAYT').value.trim(),
+        rayc: document.getElementById('cfgRAYC').value.trim(),
+        pair: document.getElementById('cfgPair').value.trim(),
+        referral: document.getElementById('cfgReferral').value.trim(),
+        marketing: document.getElementById('cfgMarketing').value.trim(),
+        dividend: document.getElementById('cfgDividend').value.trim(),
+        workshop: document.getElementById('cfgWorkshop').value.trim(),
+        mining: document.getElementById('cfgMining').value.trim(),
+        custody: document.getElementById('cfgCustody').value.trim()
+    };
+
+    for (const [key, value] of Object.entries(newCfg)) {
+        if (!ethers.utils.isAddress(value)) {
+            log(`❌ 保存失败: [${key}] 地址格式不正确`, true);
+            return alert('存在不合法的地址格式！');
+        }
+    }
+
+    localStorage.setItem('GLOBAL_RAYC_CONFIG_V2', JSON.stringify(newCfg));
+    log('✅ 最新地址配置已保存到本地！');
+    cfg = newCfg;
+    initContracts();
+};
+
+function initContracts() {
+    if(!signer) return;
+    C = {
+        referral: new ethers.Contract(cfg.referral, ABI.referral, signer),
+        dividend: new ethers.Contract(cfg.dividend, ABI.dividend, signer),
+        workshop: new ethers.Contract(cfg.workshop, ABI.workshop, signer),
+        mining: new ethers.Contract(cfg.mining, ABI.mining, signer),
+        custody: new ethers.Contract(cfg.custody, ABI.custody, signer),
+        rayc: new ethers.Contract(cfg.rayc, ABI.rayc, signer),
+        marketing: new ethers.Contract(cfg.marketing, ABI.marketing, signer)
+    };
+}
+
+async function tx(promise, msg) {
+    try {
+        log(`⏳ 执行中: ${msg}...`);
+        const res = await promise;
+        await res.wait();
+        log(`✅ 成功: ${msg} (Hash: ${res.hash.slice(0,10)}...)`);
+        return true;
+    } catch(e) {
+        log(`❌ 失败: ${msg} -> ${(e.reason || e.message)}`, true);
+        throw e;
+    }
+}
+
+// ==================== Owner 一致性检查 ====================
+async function checkAllOwners() {
+    if(!C.referral) return alert('请先连接钱包');
+    const el = document.getElementById('ownerCheckResult');
+    el.style.display = 'block';
+    el.innerHTML = '<div>检查中...</div>';
+
+    const checks = [
+        { name: '分红合约', contract: C.dividend },
+        { name: '工作室合约', contract: C.workshop },
+        { name: '挖矿合约', contract: C.mining },
+        { name: '托管合约', contract: C.custody },
+        { name: 'RAYC 代币', contract: C.rayc },
+        { name: '营销合约', contract: C.marketing }
+    ];
+
+    let html = '';
+    for (const { name, contract } of checks) {
+        try {
+            const o = await contract.owner();
+            const ok = o.toLowerCase() === userAddress.toLowerCase();
+            html += `<div><span class="${ok ? 'ok' : 'bad'}">${ok ? '✅' : '❌'}</span> ${name}: <code style="color:#94a3b8;font-size:11px">${o}</code></div>`;
+        } catch(e) {
+            html += `<div><span class="bad">❌</span> ${name}: 读取失败 (${e.message.slice(0,40)})</div>`;
+        }
+    }
+    // referral 用的是 Ownable2Step？有些版本没有 owner()
+    // 直接不查 referral，因为它有 setAuthorizedContract 只需要 owner
+    try {
+        // 尝试通过 setAuthorizedContract 调用来验证（不实际调用），跳过
+    
+    } catch(e) {}
+
+    el.innerHTML = html;
+}
+
+// ==================== 4 步授权 ====================
+
+async function execStep1() {
+    if(!C.referral) return alert('请先连接钱包');
+    try {
+        await tx(C.referral.setAuthorizedContract(cfg.workshop, true), '授权工作室节点写入推荐关系');
+        await tx(C.referral.setAuthorizedContract(cfg.mining, true), '授权挖矿合约写入推荐关系');
+    } catch(e){}
+}
+
+async function execStep2() {
+    if(!C.dividend) return alert('请先连接钱包');
+    try {
+        await tx(C.dividend.setNodeContract(cfg.workshop), '分红合约绑定工作室节点');
+        await tx(C.workshop.setDividendContract(cfg.dividend), '工作室节点绑定分红合约');
+    } catch(e){}
+}
+
+async function execStep3() {
+    if(!C.mining) return alert('请先连接钱包');
+    try {
+        await tx(C.mining.setWorkshopNode(cfg.workshop), '挖矿合约绑定工作室节点');
+        await tx(C.mining.setVIPChecker(cfg.custody), '挖矿合约绑定托管验证 (VIP)');
+        await tx(C.mining.setReferralRegistry(cfg.referral), '挖矿合约绑定推荐关系');
+    } catch(e){}
+}
+
+async function execStep4() {
+    if(!C.custody) return alert('请先连接钱包');
+    try {
+        await tx(C.custody.setReferralRegistry(cfg.referral), '托管合约绑定推荐关系');
+        await tx(C.custody.setWorkshopNode(cfg.workshop), '托管合约绑定工作室');
+        await tx(C.custody.setRaycUsdtPair(cfg.pair), '托管合约绑定 RAYC/USDT 交易对');
+        // 用户扣的 RAYT 手续费直接打到黑洞销毁
+        await tx(C.custody.setRaytTaxReceiver("0x000000000000000000000000000000000000dEaD"), '设置托管 RAYT 税接收地址为黑洞');
+
+        // ⚡ RAYC 用 setAddresses(dividend, marketing) 一次性设置两个地址
+        await tx(C.rayc.setAddresses(cfg.dividend, cfg.marketing), 'RAYC 代币绑定新分红合约 + 新营销合约');
+    } catch(e){}
+}
+
+async function execAll() {
+    if(!C.referral) return alert('请先连接钱包');
+    if(!confirm('⚠️ 即将执行全量合约授权与绑定，请确保左侧地址已保存且无误。是否继续？')) return;
+    
+    log('=== 开始执行全量授权 ===');
+    try {
+        await execStep1();
+        await execStep2();
+        await execStep3();
+        await execStep4();
+        log('🎉 全量授权配置完成！系统已重新接线。');
+        log('📌 建议现在去 BscScan 抽查几个合约的绑定是否生效');
+    } catch(e) {
+        log('⚠️ 执行中断：请查看上方红色报错，解决问题后重试。', true);
+    }
+}
+</script>
+</body>
+</html>

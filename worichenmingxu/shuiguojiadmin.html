@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>水果机管理后台</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui;background:#0a0f1e;color:#eef;padding:20px}
+.container{max-width:1200px;margin:0 auto}
+h1{margin-bottom:20px;border-left:4px solid #d82b8f;padding-left:16px}
+.card{background:#141b2b;border-radius:20px;padding:20px;margin-bottom:20px;border:1px solid #2a3a5a}
+.card h2{color:#ff90e0;margin-bottom:14px;font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px}
+input,select{background:#0f1622;border:1px solid #2a3a5a;color:#eef;padding:10px;border-radius:12px;width:100%;margin:6px 0}
+button{background:#d82b8f;border:none;color:#fff;padding:10px 20px;border-radius:30px;cursor:pointer;margin-top:8px;font-size:14px}
+button:hover{filter:brightness(1.1)}
+button.red{background:#8b3c3c}
+button.green{background:#10b981}
+button.orange{background:#f59e0b}
+.log{background:#0f1622;border-radius:14px;padding:10px;font-family:monospace;font-size:12px;max-height:200px;overflow-y:auto;margin-top:12px}
+.row{display:flex;justify-content:space-between;background:#0f1622;padding:10px 14px;border-radius:12px;margin:6px 0;font-size:13px}
+.badge{padding:2px 10px;border-radius:20px;font-size:12px}
+.badge.ok{background:#10b98130;color:#34d399}
+.badge.off{background:#6b728030;color:#9ca3af}
+.warning{color:#ffaa66;font-size:12px;margin-top:4px}
+.calc-box{background:#0f1622;border-radius:14px;padding:12px;margin-top:10px;font-size:13px;line-height:1.8}
+.calc-box .highlight{color:#facc15;font-weight:600}
+
+/* 👇 新增：表格样式 */
+.table-container { overflow-x: auto; max-height: 400px; overflow-y: auto; margin-top: 15px; border-radius: 12px; border: 1px solid #2a3a5a;}
+table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;}
+th { background: #0f1622; color: #ff90e0; padding: 12px 10px; position: sticky; top: 0; font-weight: normal;}
+td { padding: 10px; border-bottom: 1px solid #2a3a5a; }
+tr:hover { background: rgba(255,255,255,0.02); }
+.addr-cell { font-family: monospace; }
+.win-badge { color: #34d399; font-weight: bold; }
+.lose-badge { color: #f87171; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎰 水果机管理后台</h1>
+
+  <div class="card">
+    <button id="connectBtn">连接钱包</button>
+    <div id="walletStatus" style="margin-top:10px;font-family:monospace">未连接</div>
+    <div id="ownerCheck" style="color:#ffaa66;margin-top:8px"></div>
+  </div>
+
+  <div id="adminPanel" style="display:none">
+    <div class="card">
+      <h2>⚙️ 合约配置</h2>
+      <div>水果机合约地址</div>
+      <input type="text" id="cfgFruit" value="0x05F21FC3Ae1a89854E3C61B70fB597D5e44686FB">
+      <div>RAYT 代币地址</div>
+      <input type="text" id="cfgRAYT" value="0x88201e877C4FC38D2C1c3AF20A32234629f02405">
+      <div>USDT 地址</div>
+      <input type="text" id="cfgUSDT" value="0x55d398326f99059fF775485246999027B3197955">
+      <button class="green" id="saveCfgBtn">💾 保存配置</button>
+    </div>
+
+    <div class="card">
+      <h2>📌 合约概览</h2>
+      <div class="row"><span>水果机合约</span><span id="fruitAddr">-</span></div>
+      <div class="row"><span>USDT 奖池</span><span id="poolBalance">-</span></div>
+      <div class="row"><span>RAYT 兑 USDT 价格</span><span id="curRaytPrice" style="color:#facc15">-</span></div>
+      <div class="row"><span>暂停状态</span><span id="pauseStatus">-</span></div>
+      <button id="refreshBtn">🔄 刷新</button>
+    </div>
+
+    <div class="card">
+      <h2>📊 游戏统计</h2>
+      <div class="row"><span>总投注次数</span><span id="totalBets">-</span></div>
+      <div class="row"><span>总中奖次数</span><span id="totalWins">-</span></div>
+      <div class="row"><span>累计投注 RAYT</span><span id="totalRAYTBet">-</span></div>
+      <div class="row"><span>累计派发 USDT</span><span id="totalUSDTPaid">-</span></div>
+    </div>
+
+    <!-- 👇 新增：参与记录明细扫描模块 👇 -->
+    <div class="card">
+      <h2>🔍 参与记录明细 (链上统计)</h2>
+      <div class="warning">提示：由于数据存在链上，请尽量缩小查询范围以提升速度。不填默认扫描最近 10000 个区块。</div>
+      <div style="display:flex; gap:10px; align-items:flex-start; margin-top:10px; flex-wrap:wrap;">
+        <input type="number" id="scanFromBlock" placeholder="起始区块 (如: 129700000)" style="flex:1; min-width:200px;">
+        <input type="number" id="scanToBlock" placeholder="结束区块 (留空则自动获取最新)" style="flex:1; min-width:200px;">
+        <button class="orange" id="scanRecordsBtn" style="margin-top:6px; white-space:nowrap;">🔍 开始扫描</button>
+      </div>
+      <div id="scanProgress" style="color:#facc15; font-size:12px; margin-top:10px; font-weight:bold;"></div>
+      
+      <div class="table-container">
+        <table id="recordsTable" style="display:none;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>用户地址</th>
+              <th>投注 (RAYT)</th>
+              <th>中奖状态</th>
+              <th>派发 (USDT)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- 👆 新增结束 👆 -->
+
+    <div class="grid">
+      <div class="card">
+        <h2>🎯 中奖概率</h2>
+        <div>当前：<span id="curChance">-</span></div>
+        <input type="number" id="newChance" placeholder="中奖概率基点（3000 = 30%）">
+        <button id="setChanceBtn">更新概率</button>
+      </div>
+
+      <div class="card">
+        <h2>💰 返倍数</h2>
+        <div>当前：<span id="curMultiplier">-</span></div>
+        <input type="number" id="newMultiplier" placeholder="返倍数基点（30000 = 3倍）">
+        <button id="setMultiplierBtn">更新返倍数</button>
+      </div>
+
+      <div class="card">
+        <h2>💱 RAYT 兑换价格</h2>
+        <div class="warning">当前固定 1 RAYT = 0.01 USDT (填 10000000000000000)</div>
+        <input type="text" id="newRaytPrice" placeholder="输入 wei 格式，如 10000000000000000">
+        <button class="orange" id="setRaytPriceBtn">更新固定价格</button>
+      </div>
+
+      <div class="card">
+        <h2>📊 投注限额</h2>
+        <div>最小：<span id="curMinBet">-</span></div>
+        <div>最大：<span id="curMaxBet">-</span></div>
+        <input type="number" id="newMinBet" placeholder="最小投注 RAYT">
+        <input type="number" id="newMaxBet" placeholder="最大投注 RAYT">
+        <button id="setLimitsBtn">更新限额</button>
+      </div>
+
+      <div class="card">
+        <h2>💰 USDT 奖池管理</h2>
+        <div>当前奖池：<span id="curPool">-</span></div>
+        <input type="number" id="depositAmount" placeholder="注入 USDT 数量">
+        <button class="green" id="depositBtn">注入奖池</button>
+        <hr style="border-color:#2a3a5a;margin:12px 0">
+        <input type="number" id="withdrawAmount" placeholder="提取 USDT 数量">
+        <input type="text" id="withdrawTo" placeholder="接收地址">
+        <button class="red" id="withdrawBtn">提取奖池</button>
+      </div>
+
+      <div class="card">
+        <h2>🎯 RAYT 奖池接收地址</h2>
+        <div>当前：<span id="curPrizeRcv" style="font-size:12px;word-break:break-all">-</span></div>
+        <input type="text" id="newPrizeRcv" placeholder="新接收地址">
+        <button id="setPrizeRcvBtn">更新接收地址</button>
+      </div>
+
+      <div class="card">
+        <h2>⏸️ 合约控制</h2>
+        <button class="red" id="pauseBtn">暂停游戏</button>
+        <button class="green" id="unpauseBtn">恢复游戏</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📈 收益测算器</h2>
+      <div class="calc-box" id="calcBox">
+        等待加载...
+      </div>
+    </div>
+  </div>
+
+  <div class="log" id="log">📋 操作日志</div>
+</div>
+
+<script>
+const ERC20_ABI = [
+    "function balanceOf(address) view returns (uint256)",
+    "function approve(address,uint256) returns (bool)",
+    "function allowance(address,address) view returns (uint256)"
+];
+
+const FRUIT_ABI = [
+    "function owner() view returns (address)",
+    "function paused() view returns (bool)",
+    "function pause() external",
+    "function unpause() external",
+    "function winChanceBps() view returns (uint256)",
+    "function setWinChance(uint256) external",
+    "function payoutMultiplierBps() view returns (uint256)",
+    "function setPayoutMultiplier(uint256) external",
+    "function raytPrice() view returns (uint256)",
+    "function setRaytPrice(uint256) external",
+    "function minBet() view returns (uint256)",
+    "function maxBet() view returns (uint256)",
+    "function setBetLimits(uint256,uint256) external",
+    "function prizePoolReceiver() view returns (address)",
+    "function setPrizePoolReceiver(address) external",
+    "function depositUSDTPool(uint256) external",
+    "function withdrawUSDTPool(address,uint256) external",
+    "function getUSDTPool() view returns (uint256)",
+    "function getStats() view returns (uint256,uint256,uint256,uint256)",
+    "event BetPlaced(address indexed user, uint256 betRAYT, bool won, uint256 payoutUSDT)" // 新增读取事件
+];
+
+let provider, signer, userAddress;
+let fruit, rayt, usdt;
+let cfg = {};
+
+const logEl = document.getElementById('log');
+function log(m,e=false){const c=e?'#ff7b72':'#7effb3';logEl.innerHTML+=`<div style="color:${c}">[${new Date().toLocaleTimeString()}] ${m}</div>`;logEl.scrollTop=logEl.scrollHeight;}
+function fmt(v,dec=18){try{return parseFloat(ethers.utils.formatUnits(v,dec)).toFixed(4);}catch(e){return "0";}}
+
+function saveConfig(){
+    cfg = {
+        fruit: document.getElementById('cfgFruit').value.trim(),
+        rayt: document.getElementById('cfgRAYT').value.trim(),
+        usdt: document.getElementById('cfgUSDT').value.trim()
+    };
+    localStorage.setItem('rayt_fruit_cfg_v2', JSON.stringify(cfg));
+    log('配置已保存');
+    location.reload();
+}
+function loadConfig(){
+    const saved = localStorage.getItem('rayt_fruit_cfg_v2');
+    if(saved){
+        try{ cfg = JSON.parse(saved); }catch(e){}
+    }
+    if(!cfg.fruit){
+        cfg = {
+            fruit: "0x05F21FC3Ae1a89854E3C61B70fB597D5e44686FB",
+            rayt: "0x88201e877C4FC38D2C1c3AF20A32234629f02405",
+            usdt: "0x55d398326f99059fF775485246999027B3197955"
+        };
+    }
+    document.getElementById('cfgFruit').value = cfg.fruit;
+    document.getElementById('cfgRAYT').value = cfg.rayt;
+    document.getElementById('cfgUSDT').value = cfg.usdt;
+}
+document.getElementById('saveCfgBtn').onclick = saveConfig;
+
+document.getElementById('connectBtn').onclick = async () => {
+    if(!window.ethereum) return alert('请安装 MetaMask');
+    try{
+        await window.ethereum.request({method:'eth_requestAccounts'});
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+        const net = await provider.getNetwork();
+        if(net.chainId !== 56){ alert('请切换到 BSC 主网'); return; }
+        document.getElementById('walletStatus').innerText = '已连接: '+userAddress;
+
+        loadConfig();
+        fruit = new ethers.Contract(cfg.fruit, FRUIT_ABI, signer);
+        rayt = new ethers.Contract(cfg.rayt, ERC20_ABI, signer);
+        usdt = new ethers.Contract(cfg.usdt, ERC20_ABI, signer);
+        document.getElementById('fruitAddr').innerText = cfg.fruit;
+
+        const owner = await fruit.owner();
+        if(owner.toLowerCase() === userAddress.toLowerCase()){
+            document.getElementById('ownerCheck').innerHTML = '✅ 管理员权限已解锁';
+            document.getElementById('adminPanel').style.display = 'block';
+            await refresh();
+        }else{
+            document.getElementById('ownerCheck').innerHTML = '⛔ 非水果机合约 owner';
+        }
+    }catch(e){ alert('连接失败: '+e.message); }
+};
+
+async function refresh(){
+    if(!fruit) return;
+    try{
+        const pool = await fruit.getUSDTPool();
+        document.getElementById('poolBalance').innerText = fmt(pool) + ' USDT';
+        document.getElementById('curPool').innerText = fmt(pool) + ' USDT';
+
+        const paused = await fruit.paused();
+        document.getElementById('pauseStatus').innerHTML = paused ? '<span class="badge off">已暂停</span>' : '<span class="badge ok">运行中</span>';
+
+        const chance = await fruit.winChanceBps();
+        document.getElementById('curChance').innerText = (chance/100).toFixed(2) + '%';
+        const mult = await fruit.payoutMultiplierBps();
+        document.getElementById('curMultiplier').innerText = (mult/10000).toFixed(2) + ' 倍';
+
+        const rp = await fruit.raytPrice();
+        document.getElementById('curRaytPrice').innerText = fmt(rp) + ' USDT';
+
+        const minB = await fruit.minBet();
+        const maxB = await fruit.maxBet();
+        document.getElementById('curMinBet').innerText = fmt(minB) + ' RAYT';
+        document.getElementById('curMaxBet').innerText = fmt(maxB) + ' RAYT';
+
+        document.getElementById('curPrizeRcv').innerText = await fruit.prizePoolReceiver();
+
+        const stats = await fruit.getStats();
+        document.getElementById('totalBets').innerText = stats[0].toString();
+        document.getElementById('totalWins').innerText = stats[1].toString();
+        document.getElementById('totalRAYTBet').innerText = fmt(stats[2]) + ' RAYT';
+        document.getElementById('totalUSDTPaid').innerText = fmt(stats[3]) + ' USDT';
+
+        // 收益测算
+        updateCalc(chance, mult);
+
+    }catch(e){ log('刷新失败: '+e.message, true); }
+}
+document.getElementById('refreshBtn').onclick = refresh;
+
+function updateCalc(chanceBps, multBps){
+    if(!chanceBps || !multBps) return;
+    const chance = chanceBps / 100;
+    const mult = multBps / 10000;
+    const expect = (chance / 100) * mult;   
+    const edge = (1 - expect) * 100;        
+    const edgeColor = edge > 0 ? '#34d399' : '#f87171';
+    const edgeText = edge > 0 ? `项目方优势 ${edge.toFixed(2)}%` : `项目方亏损 ${Math.abs(edge).toFixed(2)}%`;
+
+    document.getElementById('calcBox').innerHTML = `
+        中奖概率：<span class="highlight">${chance}%</span><br>
+        返倍数：<span class="highlight">${mult}倍</span><br>
+        期望回报：<span class="highlight">${expect.toFixed(4)} 倍</span><br>
+        <span style="color:${edgeColor};font-weight:700">${edgeText}</span><br>
+        <span style="color:#94a3b8;font-size:12px">当前配置下，平台平均每接收价值 1U 的 RAYT，会派发 ${expect.toFixed(2)}U 的奖金。</span>
+    `;
+}
+
+/* 👇 新增：扫描事件明细逻辑 👇 */
+document.getElementById('scanRecordsBtn').onclick = async () => {
+    if(!fruit) return alert('请先连接钱包');
+    
+    const btn = document.getElementById('scanRecordsBtn');
+    const progress = document.getElementById('scanProgress');
+    const table = document.getElementById('recordsTable');
+    const tbody = table.querySelector('tbody');
+    
+    try {
+        btn.disabled = true;
+        let from = parseInt(document.getElementById('scanFromBlock').value);
+        let to = parseInt(document.getElementById('scanToBlock').value);
+        
+        const latest = await provider.getBlockNumber();
+        if(isNaN(to)) to = latest;
+        if(isNaN(from) || from < 0) from = to - 10000; // 默认查最近1万块
+        
+        progress.innerText = `正在扫描区块 ${from} 到 ${to}...`;
+        tbody.innerHTML = '';
+        table.style.display = 'table';
+        
+        const filter = fruit.filters.BetPlaced();
+        const step = 4900; // 分批查询防止RPC节点报错
+        let events = [];
+        
+        for(let i = from; i <= to; i += step) {
+            let end = i + step - 1;
+            if(end > to) end = to;
+            progress.innerText = `正在扫描区块 ${i} - ${end}...`;
+            
+            try {
+                const part = await fruit.queryFilter(filter, i, end);
+                events = events.concat(part);
+            } catch (err) {
+                console.warn(`区间 ${i}-${end} 扫描失败, 可能是节点限制`, err);
+            }
+        }
+        
+        // 按区块倒序排列（最新的在最前）
+        events.sort((a, b) => b.blockNumber - a.blockNumber);
+        
+        progress.innerText = `扫描完成！共找到 ${events.length} 条记录。`;
+        
+        if(events.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">该区间没有参与记录</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        events.forEach((ev, idx) => {
+            const user = ev.args.user;
+            const betAmt = fmt(ev.args.betRAYT);
+            const won = ev.args.won;
+            const payout = fmt(ev.args.payoutUSDT);
+            
+            html += `<tr>
+                <td>${idx + 1}</td>
+                <td class="addr-cell">
+                    <a href="https://bscscan.com/address/${user}" target="_blank" style="color:#4facfe; text-decoration:none;">
+                        ${user.slice(0,6)}...${user.slice(-4)}
+                    </a>
+                </td>
+                <td style="color:#facc15;">${betAmt}</td>
+                <td class="${won ? 'win-badge' : 'lose-badge'}">${won ? '🎉 中奖' : '❌ 未中'}</td>
+                <td style="color:${won ? '#34d399' : '#94a3b8'};">${won ? payout : '0'}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+        
+    } catch(e) {
+        console.error(e);
+        progress.innerText = `扫描失败: ${e.message}`;
+    } finally {
+        btn.disabled = false;
+    }
+};
+/* 👆 新增结束 👆 */
+
+document.getElementById('setChanceBtn').onclick = async () => {
+    const v = parseInt(document.getElementById('newChance').value);
+    if(isNaN(v)) return alert('输入有效数值');
+    try{ await (await fruit.setWinChance(v)).wait(); log('✅ 中奖概率已更新'); await refresh(); }
+    catch(e){ log('失败: '+e.message, true); }
+};
+
+document.getElementById('setMultiplierBtn').onclick = async () => {
+    const v = parseInt(document.getElementById('newMultiplier').value);
+    if(isNaN(v)) return alert('输入有效数值');
+    try{ await (await fruit.setPayoutMultiplier(v)).wait(); log('✅ 返倍数已更新'); await refresh(); }
+    catch(e){ log('失败: '+e.message, true); }
+};
+
+document.getElementById('setRaytPriceBtn').onclick = async () => {
+    const v = document.getElementById('newRaytPrice').value.trim();
+    if(!v) return alert('输入有效数值');
+    try{ await (await fruit.setRaytPrice(v)).wait(); log('✅ RAYT固定价格已更新'); await refresh(); }
+    catch(e){ log('失败: '+e.message, true); }
+};
+
+document.getElementById('setLimitsBtn').onclick = async () => {
+    const a = parseFloat(document.getElementById('newMinBet').value);
+    const b = parseFloat(document.getElementById('newMaxBet').value);
+    if(!a || !b) return alert('输入有效数值');
+    try{
+        await (await fruit.setBetLimits(
+            ethers.utils.parseEther(a.toString()),
+            ethers.utils.parseEther(b.toString())
+        )).wait();
+        log('✅ 投注限额已更新');
+        await refresh();
+    }catch(e){ log('失败: '+e.message, true); }
+};
+
+document.getElementById('setPrizeRcvBtn').onclick = async () => {
+    const addr = document.getElementById('newPrizeRcv').value.trim();
+    if(!ethers.utils.isAddress(addr)) return alert('无效地址');
+    try{ await (await fruit.setPrizePoolReceiver(addr)).wait(); log('✅ 接收地址已更新'); await refresh(); }
+    catch(e){ log('失败: '+e.message, true); }
+};
+
+document.getElementById('depositBtn').onclick = async () => {
+    const v = parseFloat(document.getElementById('depositAmount').value);
+    if(!v || v <= 0) return alert('输入有效数量');
+    try{
+        const wei = ethers.utils.parseEther(v.toString());
+        const allowance = await usdt.allowance(userAddress, cfg.fruit);
+        if(allowance.lt(wei)){
+            log('授权 USDT 中...');
+            await (await usdt.approve(cfg.fruit, ethers.constants.MaxUint256)).wait();
+        }
+        log('注入中...');
+        await (await fruit.depositUSDTPool(wei)).wait();
+        log('✅ 奖池已注入 '+v+' USDT');
+        await refresh();
+    }catch(e){ log('注入失败: '+e.message, true); }
+};
+
+document.getElementById('withdrawBtn').onclick = async () => {
+    const v = parseFloat(document.getElementById('withdrawAmount').value);
+    const to = document.getElementById('withdrawTo').value.trim();
+    if(!v || !ethers.utils.isAddress(to)) return alert('请填写数量和地址');
+    try{
+        const wei = ethers.utils.parseEther(v.toString());
+        await (await fruit.withdrawUSDTPool(to, wei)).wait();
+        log('✅ 已提取 '+v+' USDT');
+        await refresh();
+    }catch(e){ log('提取失败: '+e.message, true); }
+};
+
+document.getElementById('pauseBtn').onclick = async () => {
+    try{ await (await fruit.pause()).wait(); log('⏸️ 已暂停'); await refresh(); }
+    catch(e){ log('失败: '+e.message, true); }
+};
+document.getElementById('unpauseBtn').onclick = async () => {
+    try{ await (await fruit.unpause()).wait(); log('▶️ 已恢复'); await refresh(); }
+    catch(e){ log('失败: '+e.message, true); }
+};
+
+window.addEventListener('load', loadConfig);
+</script>
+</body>
+</html>

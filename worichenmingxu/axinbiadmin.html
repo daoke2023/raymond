@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RAYC 生态超级管理后台</title>
+<style>
+  :root{ --bg:#0b1020; --panel:#141a2e; --panel2:#0f1528; --line:#25304f; --txt:#e8ecf7; --muted:#8a95b5; --accent:#5b8cff; --ok:#2ecc71; --warn:#ffb020; --err:#ff5c5c; }
+  *{box-sizing:border-box} body{margin:0;color:var(--txt);font-family:-apple-system,sans-serif;background:radial-gradient(1200px 600px at 50% -200px,#1b2a52 0%,#0b1020 55%) fixed,#0b1020;}
+  .hidden{display:none !important} code{background:#0a0f1f;padding:1px 5px;border-radius:4px;font-size:12px}
+  .gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+  .gate-card{width:100%;max-width:420px;background:linear-gradient(180deg,#151c33,#101528);border:1px solid var(--line);border-radius:18px;padding:32px 26px;text-align:center;}
+  header{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 20px;background:rgba(15,21,40,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);}
+  .brand{font-weight:800;font-size:15px;display:flex;align-items:center;gap:9px} .brand .dot{width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,#4a7dff,#6a5cff)}
+  .spacer{flex:1} .wallet{font-family:monospace;font-size:12px;color:var(--muted);border:1px solid var(--line);padding:6px 10px;border-radius:8px}
+  .badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}
+  .badge.ok{background:rgba(46,204,113,.14);color:#4ee08a;border:1px solid rgba(46,204,113,.35)}
+  .badge.warn{background:rgba(255,176,32,.14);color:#ffc45e;border:1px solid rgba(255,176,32,.35)}
+  main{max-width:1180px;margin:0 auto;padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .card h2{margin:0 0 14px;font-size:14px;display:flex;align-items:center;gap:8px;color:#cdd7f2}
+  .card h2::before{content:"";width:3px;height:14px;border-radius:2px;background:linear-gradient(180deg,#4a7dff,#6a5cff)}
+  .row{display:flex;flex-direction:column;gap:6px;margin-bottom:12px} .row.inline{flex-direction:row;gap:10px;align-items:flex-end} .row.inline > *{flex:1}
+  label{font-size:12px;color:var(--muted)} input,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:10px 12px;font-size:13px;outline:none;}
+  input:focus{border-color:var(--accent)}
+  button{cursor:pointer;border-radius:9px;border:1px solid #2b3760;background:#1b2340;color:var(--txt);padding:10px 15px;font-size:13px;font-weight:600;transition:.15s;}
+  button:hover:not(:disabled){background:#232d54} button.primary{background:linear-gradient(135deg,#4a7dff,#6a5cff);border:none}
+  button.danger{background:#3a1a22;border-color:#7a2b36;color:#ff9aa5} button:disabled{opacity:.45;cursor:not-allowed}
+  .hint{font-size:11.5px;color:#68729a;line-height:1.6;margin-top:8px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:9px 14px;font-size:12.5px;align-items:center}
+  .kv .k{color:var(--muted);white-space:nowrap} .kv .v{text-align:right;word-break:break-all;font-family:monospace;font-size:12px;color:#dbe4ff}
+  .divider{height:1px;background:var(--line);margin:13px 0}
+  .toasts{position:fixed;top:16px;right:16px;z-index:999;display:flex;flex-direction:column;gap:10px;max-width:340px}
+  .toast{padding:12px 16px;border-radius:10px;font-size:13px;background:#18203a;border:1px solid var(--line);animation:slidein .22s ease;}
+  .toast.err{border-color:rgba(255,92,92,.55);color:#ffb3b3} @keyframes slidein{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <h1>RAYC 生态管理后台</h1>
+    <p class="muted">仅限 Owner 访问</p>
+    <button id="connectBtn" class="primary" style="width:100%;padding:14px;" onclick="connectWallet()">连接钱包</button>
+    <p id="gateMsg" class="hint" style="color:#ffb020;margin-top:18px;"></p>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="brand"><span class="dot"></span>超级管理后台</div>
+    <span id="netBadge" class="badge">--</span>
+    <div class="spacer"></div>
+    <span id="walletAddr" class="wallet">--</span>
+  </header>
+  <main>
+    <!-- 顶部切换区 -->
+    <section class="card" style="grid-column: 1 / -1; display:flex; gap:20px; align-items:center; background:#10172a;">
+      <label style="font-size:15px; font-weight:bold; color:#5b8cff;">当前操作目标：</label>
+      <select id="targetContract" onchange="switchTarget()" style="width:300px; padding:12px; font-size:14px; font-weight:bold; cursor:pointer;">
+        <option value="RAYC-A">代币 RAYC-A (0x3479...c9a9)</option>
+        <option value="RAYC-B">代币 RAYC-B (0x2Be2...e342)</option>
+      </select>
+    </section>
+
+    <!-- 代币专属面板 -->
+    <div id="tokenPanel" style="grid-column: 1 / -1; display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:16px;">
+      <!-- 概览 -->
+      <section class="card">
+        <h2>合约概览</h2>
+        <div class="kv">
+          <div class="k">代币名称</div> <div class="v" id="vName">--</div>
+          <div class="k">交易状态</div> <div class="v" id="vTrading">--</div>
+          <div class="k">基础买/卖税</div> <div class="v"><span id="vBuyTax">--</span> / <span id="vSellTax">--</span></div>
+          <div class="k">动态大额税</div> <div class="v" id="vHighTax">--</div>
+          <div class="k">防巨鲸限流</div> <div class="v" id="vLimits">--</div>
+          <div class="k">单笔最大限额</div> <div class="v" id="vMaxTx">--</div>
+        </div>
+      </section>
+
+      <!-- 税率设置 -->
+      <section class="card">
+        <h2>税率与动态惩罚设置</h2>
+        <div class="row inline">
+          <div><label>买税 (%)</label><input id="buyTaxInput" type="number" step="0.1" /></div>
+          <div><label>卖税 (%)</label><input id="sellTaxInput" type="number" step="0.1" /></div>
+        </div>
+        <button class="primary" onclick="doSetTax()" style="width:100%;">保存基础税率</button>
+        <div class="divider"></div>
+        <label>大额卖出惩罚税率 (%)</label>
+        <input id="highTaxInput" type="number" step="0.1" />
+        <label>大额卖出触发阈值 (枚)</label>
+        <input id="taxThreshInput" type="number" />
+        <button class="primary" onclick="doSetDynamicTax()" style="width:100%;margin-top:8px;">保存动态税率</button>
+      </section>
+
+      <!-- 防巨鲸与开关 -->
+      <section class="card">
+        <h2>交易控制 & 防巨鲸</h2>
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
+          <button id="btnEnableTrading" class="primary" onclick="doEnableTrading()">开启交易</button>
+          <button id="btnToggleLimits" class="warn" onclick="doToggleLimits()">切换防巨鲸开关</button>
+        </div>
+        <div class="row inline">
+          <div><label>单笔最大交易 (枚)</label><input id="maxTxInput" type="number" /></div>
+          <div><label>钱包最大持仓 (枚)</label><input id="maxWalletInput" type="number" /></div>
+        </div>
+        <button class="primary" onclick="doSetLimits()" style="width:100%;">保存限流参数</button>
+      </section>
+
+      <!-- 黑白名单 -->
+      <section class="card">
+        <h2>名单管理 (黑名单/免税)</h2>
+        <div class="row">
+          <label>钱包地址</label>
+          <input id="addrInput" placeholder="0x..." />
+        </div>
+        <div class="row inline">
+          <div>
+            <label>类型</label>
+            <select id="listType">
+              <option value="black">黑名单 (禁止交易)</option>
+              <option value="white">免税名单</option>
+            </select>
+          </div>
+          <div>
+            <label>操作</label>
+            <select id="listStatus"><option value="true">加入</option><option value="false">移除</option></select>
+          </div>
+        </div>
+        <button class="primary" onclick="doSetList()" style="width:100%;">保存设置</button>
+      </section>
+
+      <!-- 👇 新增：收税地址管理 👇 -->
+      <section class="card" style="grid-column: 1 / -1;">
+        <h2>收税地址管理 (修改后即刻生效)</h2>
+        <p class="hint" style="margin-top:0; margin-bottom:12px;">
+          所有税收均以代币形式实时直发。如果你需要“销毁”，可以直接把税包地址改为 <code>0x000000000000000000000000000000000000dEaD</code>。
+        </p>
+        <div class="row inline">
+          <div>
+            <label>1. 税包地址</label>
+            <input id="walletTax" placeholder="0x..." />
+          </div>
+          <div>
+            <label>2. 分红地址</label>
+            <input id="walletDiv" placeholder="0x..." />
+          </div>
+          <div>
+            <label>3. 营销地址</label>
+            <input id="walletMkt" placeholder="0x..." />
+          </div>
+        </div>
+        <button class="primary" onclick="doSetWallets()" style="width:100%;">保存 3 个地址</button>
+      </section>
+      <!-- 👆 新增结束 👆 -->
+    </div>
+  </main>
+</div>
+<div id="toasts" class="toasts"></div>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+  const ADDRS = {
+    "RAYC-A": "0x3479bfA6e0f681A3763961b95759f477DE7Cc9a9",
+    "RAYC-B": "0x2Be2D5a8e88A53854258A03B302866443cb9e342"
+  };
+  const BSC_CHAIN_ID = 56n;
+
+  const TOKEN_ABI = [
+    "function name() view returns (string)", "function owner() view returns (address)",
+    "function buyTaxBps() view returns (uint256)", "function sellTaxBps() view returns (uint256)",
+    "function highSellTaxBps() view returns (uint256)", "function sellTaxThreshold() view returns (uint256)",
+    "function tradingEnabled() view returns (bool)", "function limitsInEffect() view returns (bool)",
+    "function maxTxAmount() view returns (uint256)", "function maxWalletAmount() view returns (uint256)",
+    "function taxWallet() view returns (address)", "function dividendWallet() view returns (address)",
+    "function marketingWallet() view returns (address)",
+    "function enableTrading()", "function toggleLimits(bool)", "function setLimits(uint256,uint256)",
+    "function setTax(uint256,uint256)", "function setDynamicTax(uint256,uint256)",
+    "function setBlacklist(address,bool)", "function setExcludedFromFee(address,bool)",
+    "function setWallets(address,address,address)"
+  ];
+
+  let provider, signer, account = null, busy = false;
+  let currentTarget = "RAYC-A";
+  let contractRO, contractRW;
+
+  const $ = (id) => document.getElementById(id);
+  const short = (a) => a ? a.slice(0,6)+"..."+a.slice(-4) : "--";
+
+  function toast(msg, type="ok", ms=4000){
+    const el = document.createElement("div"); el.className = "toast "+type; el.innerHTML = msg;
+    $("toasts").appendChild(el); setTimeout(()=>{ el.style.opacity="0"; setTimeout(()=>el.remove(),320); }, ms);
+  }
+  function fmt(v,d=18,max=2){ try{ return Number(ethers.formatUnits(v,d)).toLocaleString("en-US",{maximumFractionDigits:max}); }catch{ return String(v); } }
+
+  async function init() {
+    if(!window.ethereum) return $("gateMsg").innerText = "请安装钱包插件";
+    provider = new ethers.BrowserProvider(window.ethereum);
+    try {
+      const accs = await window.ethereum.request({ method: "eth_accounts" });
+      if(accs.length) await handleAccount(accs[0]);
+    } catch(e){}
+  }
+
+  async function connectWallet() {
+    if(!window.ethereum) return;
+    try {
+      const accs = await window.ethereum.request({ method: "eth_requestAccounts" });
+      if(accs.length) await handleAccount(accs[0]);
+    } catch(e){ toast("连接失败", "err"); }
+  }
+
+  async function handleAccount(addr) {
+    account = addr;
+    provider = new ethers.BrowserProvider(window.ethereum);
+    const net = await provider.getNetwork();
+    if(net.chainId !== BSC_CHAIN_ID) {
+      try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] }); } 
+      catch(e) { toast("请切换 BSC 主网", "err"); return; }
+    }
+    signer = await provider.getSigner();
+    $("gate").classList.add("hidden"); $("app").classList.remove("hidden");
+    $("walletAddr").textContent = short(addr); $("netBadge").textContent = "BSC"; $("netBadge").className = "badge ok";
+    switchTarget();
+  }
+
+  function switchTarget() {
+    currentTarget = $("targetContract").value;
+    loadInfo();
+  }
+
+  async function loadInfo() {
+    if(!signer) return;
+    try {
+      contractRO = new ethers.Contract(ADDRS[currentTarget], TOKEN_ABI, provider);
+      contractRW = new ethers.Contract(ADDRS[currentTarget], TOKEN_ABI, signer);
+      const [trading, buyTax, sellTax, highTax, threshold, limits, maxTx, maxWallet, owner, taxW, divW, mktW] = await Promise.all([
+        contractRO.tradingEnabled(), contractRO.buyTaxBps(), contractRO.sellTaxBps(),
+        contractRO.highSellTaxBps(), contractRO.sellTaxThreshold(), contractRO.limitsInEffect(),
+        contractRO.maxTxAmount(), contractRO.maxWalletAmount(), contractRO.owner(),
+        contractRO.taxWallet(), contractRO.dividendWallet(), contractRO.marketingWallet()
+      ]);
+      
+      if(owner.toLowerCase() !== account.toLowerCase()) toast("⚠️ 当前钱包非该代币 Owner", "err");
+      
+      $("vName").textContent = currentTarget;
+      $("vTrading").innerHTML = trading ? '<span class="badge ok">已开启</span>' : '<span class="badge warn">未开启</span>';
+      $("vBuyTax").textContent = (Number(buyTax)/100).toFixed(2) + "%";
+      $("vSellTax").textContent = (Number(sellTax)/100).toFixed(2) + "%";
+      $("vHighTax").textContent = (Number(highTax)/100).toFixed(2) + "% (超 " + fmt(threshold,18,0) + " 触发)";
+      $("vLimits").innerHTML = limits ? '<span class="badge warn">生效中</span>' : '<span class="badge ok">已关闭</span>';
+      $("vMaxTx").textContent = fmt(maxTx, 18, 0);
+      
+      $("buyTaxInput").value = (Number(buyTax)/100).toString();
+      $("sellTaxInput").value = (Number(sellTax)/100).toString();
+      $("highTaxInput").value = (Number(highTax)/100).toString();
+      $("taxThreshInput").value = ethers.formatUnits(threshold, 18);
+      $("maxTxInput").value = ethers.formatUnits(maxTx, 18);
+      $("maxWalletInput").value = ethers.formatUnits(maxWallet, 18);
+      
+      $("walletTax").value = taxW;
+      $("walletDiv").value = divW;
+      $("walletMkt").value = mktW;
+      
+    } catch(e){ toast("读取代币信息失败", "err"); }
+  }
+
+  async function sendTx(fn, ...args) {
+    if(busy) return; try {
+      busy = true; const tx = await contractRW[fn](...args);
+      toast("等待交易确认..."); await tx.wait(); toast("✅ 成功"); await loadInfo();
+    } catch(e){ toast("❌ " + (e.reason || e.message), "err"); } finally { busy = false; }
+  }
+
+  async function doEnableTrading() { if(confirm("确定开启交易且不可撤销？")) await sendTx("enableTrading"); }
+  async function doToggleLimits() { await sendTx("toggleLimits", !(await contractRO.limitsInEffect())); }
+  async function doSetTax() { await sendTx("setTax", Math.round(parseFloat($("buyTaxInput").value)*100), Math.round(parseFloat($("sellTaxInput").value)*100)); }
+  
+  async function doSetDynamicTax() { 
+    await sendTx("setDynamicTax", Math.round(parseFloat($("highTaxInput").value)*100), ethers.parseUnits($("taxThreshInput").value, 18)); 
+  }
+  
+  async function doSetLimits() {
+    await sendTx("setLimits", ethers.parseUnits($("maxTxInput").value, 18), ethers.parseUnits($("maxWalletInput").value, 18));
+  }
+  
+  async function doSetList() {
+    const a = $("addrInput").value.trim();
+    const t = $("listType").value;
+    const s = $("listStatus").value === "true";
+    const fn = t === "black" ? "setBlacklist" : "setExcludedFromFee";
+    await sendTx(fn, a, s);
+  }
+
+  async function doSetWallets() {
+    const t = $("walletTax").value.trim();
+    const d = $("walletDiv").value.trim();
+    const m = $("walletMkt").value.trim();
+    if(!ethers.isAddress(t) || !ethers.isAddress(d) || !ethers.isAddress(m)) return toast("地址格式错误", "err");
+    await sendTx("setWallets", t, d, m);
+  }
+
+  init();
+</script>
+</body>
+</html>

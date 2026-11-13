@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>钱包地址生成器 (测试专用)</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+    body { background: #0b1020; color: #fff; font-family: sans-serif; padding: 20px; text-align: center; }
+    textarea { width: 100%; max-width: 600px; height: 400px; background: #141a2e; color: #10b981; border: 1px solid #25304f; padding: 10px; font-family: monospace; margin-top: 20px; }
+    button { background: #5b8cff; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; }
+</style>
+</head>
+<body>
+    <h2>🛠️ 批量钱包地址生成器</h2>
+    <p style="color:#94a3b8; font-size:14px;">注意：生成的地址为随机假地址，无真实私钥，仅供测试空投合约使用。</p>
+    <input type="number" id="num" value="1000" style="padding:10px; border-radius:8px; border:none; margin-top:20px;" />
+    <button onclick="generate()">生成地址</button>
+    <br>
+    <textarea id="result" readonly placeholder="点击生成后，地址会显示在这里..."></textarea>
+    <script>
+        function generate() {
+            const num = parseInt(document.getElementById('num').value);
+            if (num > 20000) return alert("单次最多生成 2 万个，防止浏览器卡死！");
+            
+            const arr = [];
+            for (let i = 0; i < num; i++) {
+                // 使用 ethers 直接生成随机钱包
+                const wallet = ethers.Wallet.createRandom();
+                arr.push(wallet.address);
+            }
+            document.getElementById('result').value = arr.join('\n');
+        }
+    </script>
+</body>
+</html>

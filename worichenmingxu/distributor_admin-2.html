@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分发合约管理后台 · WorkshopRewardDistributorV3</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#0a0f1e;color:#eef;padding:20px}
+.container{max-width:1500px;margin:0 auto}
+h1{margin-bottom:20px;border-left:4px solid #2a6df4;padding-left:16px}
+.card{background:#141b2b;border-radius:20px;padding:20px;margin-bottom:20px;border:1px solid #2a3a5a}
+.card h2{color:#7aa9ff;margin-bottom:14px;font-size:17px;border-bottom:1px solid #2a3a5a;padding-bottom:10px}
+.card h2 .tag{font-size:11px;padding:2px 8px;border-radius:10px;background:#2a6df440;color:#60a5fa;margin-left:8px;font-weight:normal}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px}
+input,select,textarea{background:#0f1622;border:1px solid #2a3a5a;color:#eef;padding:10px;border-radius:12px;width:100%;margin:6px 0;font-family:inherit;font-size:14px}
+button{background:#2a6df4;border:none;color:#fff;padding:10px 20px;border-radius:30px;cursor:pointer;margin-top:8px;font-size:14px;transition:.2s;font-family:inherit}
+button:hover{filter:brightness(1.1)}
+button:disabled{opacity:.5;cursor:not-allowed;filter:none}
+button.red{background:#8b3c3c}
+button.green{background:#10b981}
+button.orange{background:#f59e0b}
+button.purple{background:linear-gradient(95deg,#8b5cf6,#6d28d9)}
+button.small{padding:6px 14px;font-size:12px;margin-top:4px}
+.log{background:#0f1622;border-radius:14px;padding:10px;font-family:monospace;font-size:12px;max-height:250px;overflow-y:auto;margin-top:12px;border:1px solid #2a3a5a}
+.row{display:flex;justify-content:space-between;background:#0f1622;padding:10px 14px;border-radius:12px;margin:6px 0;font-size:13px;gap:10px}
+.row .k{color:#94a3b8;flex-shrink:0}
+.row .v{font-family:monospace;word-break:break-all;text-align:right}
+.warning{color:#ffaa66;font-size:12px;margin-top:8px;line-height:1.7}
+.success{color:#10b981;font-size:12px;margin-top:8px}
+.tabs{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:10px 24px;border-radius:30px;cursor:pointer;font-size:14px;font-weight:600;background:rgba(0,0,0,.4);border:1px solid #2a3a5a;color:#cbd5ff;transition:.15s}
+.tab:hover{background:#1a2333}
+.tab.active{background:linear-gradient(135deg,#1f3a8a,#2b4eb5);color:#fff;border-color:transparent}
+.panel{display:none}.panel.active{display:block;animation:fade .15s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+th{background:#0f1622;padding:10px;text-align:left;color:#7aa9ff;position:sticky;top:0;font-weight:600;font-size:12px}
+td{padding:9px 10px;border-bottom:1px solid #1f2a40}
+.badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold}
+.badge.w1{background:#3b82f630;color:#60a5fa}
+.badge.w2{background:#8b5cf630;color:#a78bfa}
+.badge.ok{background:#10b98130;color:#34d399}
+.badge.warn{background:#f59e0b30;color:#fbbf24}
+.badge.err{background:#ef444430;color:#f87171}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.stat-box{background:#0f1622;border-radius:14px;padding:14px;border:1px solid #1f2a40}
+.stat-box .label{color:#94a3b8;font-size:12px;margin-bottom:6px}
+.stat-box .value{font-size:20px;font-weight:700;letter-spacing:-.5px}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all}
+.tips{background:rgba(42,109,244,.08);border:1px solid rgba(42,109,244,.3);border-radius:12px;padding:10px 14px;font-size:12px;color:#93b8ff;margin-bottom:14px;line-height:1.7}
+.tips-warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:#fcd34d}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>💎 分发合约管理后台 · WorkshopRewardDistributorV3</h1>
+
+  <div class="card">
+    <button id="connectBtn">连接 Owner 钱包</button>
+    <div id="walletStatus" style="margin-top:10px;font-family:monospace;font-size:13px">未连接</div>
+    <div id="authStatus" style="margin-top:8px;color:#ef4444;font-weight:bold;font-size:13px"></div>
+  </div>
+
+  <div id="adminPanel" style="display:none">
+    <div class="tabs">
+      <div class="tab active" data-tab="overview">📊 概览</div>
+      <div class="tab" data-tab="ws-dist">🎁 W1/W2 工作室分发</div>
+      <!-- 托管分发 Tab 按钮已隐藏 -->
+      <div class="tab" data-tab="history">📜 分发历史 & 未领奖励</div>
+      <div class="tab" data-tab="settings">⚙️ 合约设置</div>
+      <div class="tab" data-tab="events">🔔 事件日志</div>
+    </div>
+
+    <!-- ================= 概览 ================= -->
+    <div class="panel active" id="tab-overview">
+      <div class="stat-grid">
+        <div class="stat-box"><div class="label">当前轮次</div><div class="value" id="ovRound">-</div></div>
+        <div class="stat-box"><div class="label">累计发放 USDT</div><div class="value" id="ovTotalAlloc" style="color:#4facfe">-</div></div>
+        <div class="stat-box"><div class="label">累计已领 USDT</div><div class="value" id="ovTotalClaimed" style="color:#10b981">-</div></div>
+        <div class="stat-box"><div class="label">待领取 USDT</div><div class="value" id="ovOutstanding" style="color:#f59e0b">-</div></div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>📌 合约状态</h2>
+          <div class="row"><span class="k">合约地址</span><span class="v" id="ovAddr">-</span></div>
+          <div class="row"><span class="k">Owner</span><span class="v" id="ovOwner">-</span></div>
+          <div class="row"><span class="k">RAYT 价格</span><span class="v" id="ovPrice">-</span></div>
+          <div class="row"><span class="k">当前税率</span><span class="v" id="ovTax">-</span></div>
+          <div class="row"><span class="k">手续费接收</span><span class="v" id="ovReceiver">-</span></div>
+          <div class="row"><span class="k">暂停状态</span><span class="v" id="ovPause">-</span></div>
+          <button id="refreshOverviewBtn" style="margin-top:12px">🔄 刷新</button>
+        </div>
+        <div class="card">
+          <h2>💰 合约资金池</h2>
+          <div class="row"><span class="k">USDT 余额</span><span class="v" id="ovUsdtBal" style="color:#10b981">-</span></div>
+          <div class="row"><span class="k">RAYT 余额</span><span class="v" id="ovRaytBal">-</span></div>
+          <div class="row"><span class="k">USDT 代币地址</span><span class="v mono" id="ovUsdtAddr">-</span></div>
+          <div class="row"><span class="k">RAYT 代币地址</span><span class="v mono" id="ovRaytAddr">-</span></div>
+          <div class="row"><span class="k">USDT 精度</span><span class="v" id="ovUsdtDec">-</span></div>
+          <div class="row"><span class="k">RAYT 精度</span><span class="v" id="ovRaytDec">-</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🧮 快速验算</h2>
+        <div class="tips">输入一个 USDT 金额，立即验算用户需缴的 RAYT（含税率）。用此值做部署后自检。</div>
+        <input type="number" id="calcUsdt" placeholder="输入 USDT 金额，例如 100" style="max-width:300px">
+        <button class="green small" onclick="quickCalcTax()">🧮 计算应缴 RAYT</button>
+        <div id="calcResult" style="margin-top:12px;font-family:monospace;font-size:13px;color:#10b981"></div>
+      </div>
+    </div>
+
+    <!-- ================= W1/W2 工作室分发 ================= -->
+    <div class="panel" id="tab-ws-dist">
+      <div class="tips">
+        <b>逻辑：</b>输入 W1/W2 工作室地址 → 系统自动遍历<b>工作室自己 + 伞下所有托管地址（遇到子工作室立即截断）</b> → 计算当前极差业绩 → 与快照基准对比得到新增业绩 → 按新增业绩加权分发 USDT。<br>
+        <b>⚠️</b> 分发成功后请立即点"保存当前为基准"，否则同一笔业绩会被重复发放。
+      </div>
+
+      <div class="card" style="border-color:#2a6df4;border-width:2px">
+        <h2>1️⃣ 工作室地址列表</h2>
+        <textarea id="wsAddrList" rows="5" placeholder="每行一个 W1/W2 地址：&#10;0xff625a83ed6a527061020954E00F8c52Ee9BC1BD&#10;0x..."></textarea>
+        <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
+          <button class="green" onclick="queryWsPerformance()" id="wsQueryBtn" style="flex:1;min-width:200px">🔍 查询新增业绩（对比基准）</button>
+          <button class="purple" onclick="saveWsSnapshot()" id="wsSnapBtn" style="flex:1;min-width:180px">📸 保存当前为基准</button>
+        </div>
+        <div id="wsProgress" style="margin-top:10px;color:#f59e0b;font-size:13px"></div>
+        <div id="wsSnapshotInfo" style="margin-top:6px;font-size:12px;color:#94a3b8"></div>
+
+        <div style="overflow-x:auto;margin-top:16px;max-height:450px">
+          <table id="wsTable" style="display:none">
+            <thead>
+              <tr>
+                <th>#</th><th>工作室地址</th><th>W 级</th><th>当前业绩 (U)</th>
+                <th>基准 (U)</th><th style="color:#facc15">新增业绩 (U)</th><th>状态</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="border-color:#f59e0b;border-width:2px">
+        <h2>2️⃣ 分发奖励（按新增业绩比例）</h2>
+        
+        <div class="tips" style="background:rgba(16,185,129,.1); border-color:#10b981;">
+          💡 <b>按 5% 计提：</b>当前查询到的总新增业绩为 <b id="wsTotalAddedDisplay" style="color:#10b981;font-size:14px">0.00</b> USDT，
+          按 5% 应发总额为 <b id="wsSuggestedTotal" style="color:#10b981;font-size:14px">0.00</b> USDT。
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+          <button class="green small" onclick="autoFillWs5Percent()" style="flex:1;">✨ 一键填入 5% 总额</button>
+        </div>
+
+        <input type="number" id="wsRewardAmount" placeholder="本次分发的 USDT 总额，或点上方一键填入">
+        
+        <div id="wsDistPreview" class="tips" style="margin-top:10px">等待查询后可预览每人的分配金额。</div>
+        <button class="orange" onclick="distributeWs()" id="wsDistBtn" style="width:100%">🚀 授权并一键分发 W1/W2 奖励</button>
+        <div id="wsDistProgress" style="margin-top:10px;color:#f59e0b;font-size:13px"></div>
+      </div>
+    </div>
+
+    <!-- ================= 分发历史 & 未领奖励 ================= -->
+    <div class="panel" id="tab-history">
+      <div class="card" style="border-color:#8b5cf6;border-width:2px">
+        <h2>📜 每轮分发统计</h2>
+        <div class="tips">每轮显示：总额 / 总业绩 / 已领 / 未领金额 / 未领比例。</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input type="number" id="histLimit" placeholder="加载最近 N 轮（留空=全部）" value="50" style="max-width:280px">
+          <button class="green" onclick="loadRoundHistory()" id="histLoadBtn" style="flex:1;min-width:160px">🔄 加载历史</button>
+        </div>
+        <div id="histProgress" style="margin-top:10px;color:#f59e0b;font-size:13px"></div>
+        <div style="overflow-x:auto;margin-top:16px;max-height:500px">
+          <table id="histTable" style="display:none">
+            <thead>
+              <tr><th>轮次</th><th>总额 USDT</th><th>总业绩</th><th>已领 USDT</th><th>未领 USDT</th><th>未领比例</th><th>操作</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="border-color:#10b981;border-width:2px">
+        <h2>🔍 查询单个地址的未领奖励</h2>
+        <div class="tips">输入一个地址，自动遍历所有轮次，列出尚未领取的奖励明细。</div>
+        <input type="text" id="singleClaimAddr" placeholder="用户地址 0x...">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input type="number" id="singleClaimRounds" placeholder="扫描轮数（留空=全部，建议首次用 200）" style="flex:1;min-width:200px">
+          <button class="green" onclick="querySingleUnclaimed()" id="singleClaimBtn" style="flex:1;min-width:160px">🔍 查询未领</button>
+        </div>
+        <div id="singleClaimProgress" style="margin-top:10px;color:#f59e0b;font-size:13px"></div>
+        <div id="singleClaimResult" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card" style="border-color:#f59e0b;border-width:2px">
+        <h2>📋 批量查询未领奖励</h2>
+        <textarea id="batchClaimAddrs" rows="5" placeholder="每行一个地址，最多 100 个"></textarea>
+        <input type="number" id="batchClaimRounds" placeholder="扫描轮数（留空=全部）">
+        <button class="orange" onclick="queryBatchUnclaimed()" id="batchClaimBtn" style="width:100%">🚀 批量查询</button>
+        <div id="batchClaimProgress" style="margin-top:10px;color:#f59e0b;font-size:13px"></div>
+        <div style="overflow-x:auto;margin-top:16px;max-height:500px">
+          <table id="batchClaimTable" style="display:none">
+            <thead>
+              <tr><th>#</th><th>地址</th><th>未领轮数</th><th>未领 USDT</th><th>需缴 RAYT</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 合约设置 ================= -->
+    <div class="panel" id="tab-settings">
+      <div class="grid">
+        <div class="card">
+          <h2>💰 手续费税率</h2>
+          <div class="row"><span class="k">当前</span><span class="v" id="setTaxNow">-</span></div>
+          <div class="tips">1000 = 10%，上限 3000 = 30%。</div>
+          <input type="number" id="setTaxNew" placeholder="新税率 BPS，例如 1000">
+          <button class="green small" onclick="updateTaxBps()" style="width:100%">✅ 更新税率</button>
+        </div>
+
+        <div class="card">
+          <h2>🏦 手续费接收地址</h2>
+          <div class="row"><span class="k">当前</span><span class="v mono" id="setRecvNow">-</span></div>
+          <input type="text" id="setRecvNew" placeholder="新接收地址 0x...">
+          <button class="green small" onclick="updateTaxReceiver()" style="width:100%">✅ 更新接收地址</button>
+        </div>
+
+        <div class="card">
+          <h2>⏸️ 暂停 / 恢复</h2>
+          <div class="row"><span class="k">当前</span><span class="v" id="setPauseNow">-</span></div>
+          <div class="tips tips-warn">暂停后 distributeRewards / claim 都会失效。请勿在有用户待领奖励时长期暂停。</div>
+          <div style="display:flex;gap:10px">
+            <button class="red small" onclick="pauseContract()" style="flex:1">⏸️ 暂停</button>
+            <button class="green small" onclick="unpauseContract()" style="flex:1">▶️ 恢复</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>🚨 应急提取</h2>
+          <div class="tips tips-warn">
+            <b>USDT</b> 受保护：只能提取超出 outstandingUSDT() 的部分（用户未领的不会被动）。<br>
+            其他代币（含误转的 RAYT）可正常提取。
+          </div>
+          <div class="row"><span class="k">可提 USDT（超出待领）</span><span class="v" id="setWithdrawable">-</span></div>
+          <input type="text" id="setWdToken" placeholder="代币地址 0x...">
+          <input type="text" id="setWdTo" placeholder="接收地址 0x...">
+          <input type="text" id="setWdAmount" placeholder="数量（按该代币最小单位填 wei，例如 100e18）">
+          <button class="red small" onclick="withdrawStuck()" style="width:100%">⚠️ 执行提取</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 事件日志 ================= -->
+    <div class="panel" id="tab-events">
+      <div class="card">
+        <h2>🔔 链上事件</h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <select id="evType" style="flex:1;min-width:200px">
+            <option value="RewardsDistributed">RewardsDistributed 发放</option>
+            <option value="Claimed">Claimed 领取</option>
+            <option value="TaxBpsUpdated">TaxBpsUpdated 税率变更</option>
+            <option value="TaxReceiverUpdated">TaxReceiverUpdated 接收地址变更</option>
+            <option value="WithdrawStuck">WithdrawStuck 应急提取</option>
+          </select>
+          <input type="number" id="evFrom" placeholder="起始块（留空=最近 5000 块）" style="flex:1;min-width:180px">
+          <input type="number" id="evTo" placeholder="结束块（留空=最新）" style="flex:1;min-width:180px">
+          <button class="green" onclick="loadEvents()" id="evLoadBtn" style="flex:1;min-width:120px">🔄 加载</button>
+        </div>
+        <div id="evProgress" style="margin-top:10px;color:#f59e0b;font-size:13px"></div>
+        <div style="overflow-x:auto;margin-top:16px;max-height:520px">
+          <table id="evTable">
+            <thead><tr><th>区块</th><th>交易</th><th>详情</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="log" id="log">📋 操作日志</div>
+</div>
+
+<script>
+/* =========================================================
+ *  合约地址 & 管理员
+ * =======================================================*/
+const ADDR = {
+    distributor: "0x11c363C2c9bc3FB750e20619794DF7061B3A3AB9",
+    workshop:    "0xff625a83ed6a527061020954E00F8c52Ee9BC1BD",
+    custody:     "0xaB7920588bCB195C9F714FDbaBe31D039c52DF43",
+    referral:    "0x2EA13E42C0e05678D50d010Ca2D390742626EA9e",
+    usdt:        "0x55d398326f99059fF775485246999027B3197955",
+    rayt:        "0x88201e877C4FC38D2C1c3AF20A32234629f02405"
+};
+const SUPER_ADMIN = "0x1a01B7C72bc0C7021a54e9E4027994D8AB6f5998";
+
+/* =========================================================
+ *  ABI
+ * =======================================================*/
+const ABI = {
+    erc20: [
+        "function balanceOf(address) view returns (uint256)",
+        "function allowance(address,address) view returns (uint256)",
+        "function approve(address,uint256) returns (bool)"
+    ],
+    distributor: [
+        "function usdt() view returns (address)",
+        "function rayt() view returns (address)",
+        "function taxReceiver() view returns (address)",
+        "function raytPrice() view returns (uint256)",
+        "function taxBps() view returns (uint256)",
+        "function currentRound() view returns (uint256)",
+        "function owner() view returns (address)",
+        "function paused() view returns (bool)",
+        "function usdtDecimals() view returns (uint8)",
+        "function raytDecimals() view returns (uint8)",
+        "function rewards(uint256,address) view returns (uint256)",
+        "function claimed(uint256,address) view returns (bool)",
+        "function roundTotalUsdt(uint256) view returns (uint256)",
+        "function roundTotalPerformance(uint256) view returns (uint256)",
+        "function roundClaimedUsdt(uint256) view returns (uint256)",
+        "function totalAllocatedUsdt() view returns (uint256)",
+        "function totalClaimedUsdt() view returns (uint256)",
+        "function outstandingUSDT() view returns (uint256)",
+        "function distributeRewards(address[],uint256[],uint256)",
+        "function claim(uint256)",
+        "function getClaimTax(uint256,address) view returns (uint256)",
+        "function getUserClaimable(uint256,address) view returns (uint256,uint256,bool)",
+        "function getRoundInfo(uint256) view returns (uint256,uint256,uint256)",
+        "function setTaxBps(uint256)",
+        "function setTaxReceiver(address)",
+        "function withdrawStuckToken(address,address,uint256)",
+        "function pause()",
+        "function unpause()"
+    ],
+    workshop: [
+        "function getWorkshopLevel(address user) view returns (uint8)"
+    ],
+    custody: [
+        "function getCustodyBaseInfo(address) view returns (tuple(uint256 totalAmount,uint256 miningPrincipal,uint256 callPrincipal,uint256 startTime,uint256 lastMiningClaimDay,uint256 miningClaimedDays,uint256 callCount,uint256 callClaimedCount,bool active,bool vip))"
+    ],
+    referral: [
+        "function getDirectReferrals(address user) view returns (address[])"
+    ]
+};
+
+/* =========================================================
+ *  全局状态
+ * =======================================================*/
+let provider, signer, userAddress;
+let D, USDT_RO, RAYT_RO, CUSTODY_RO, WORKSHOP_RO, REFERRAL_RO;
+let USDT_DEC = 18, RAYT_DEC = 18;
+let lastWsRows = [];
+
+const logEl = document.getElementById('log');
+function log(m, isErr=false){
+    if(!logEl) return;
+    const color = isErr ? '#ef4444' : '#10b981';
+    logEl.innerHTML += `<div style="color:${color}">[${new Date().toLocaleTimeString()}] ${m}</div>`;
+    logEl.scrollTop = logEl.scrollHeight;
+}
+function fmt(v, dec=18, frac=4){
+    try{
+        const s = ethers.utils.formatUnits(v, dec);
+        if(!s.includes('.')) return s;
+        let [i,f] = s.split('.');
+        f = f.replace(/0+$/,'').slice(0, frac);
+        return f ? `${i}.${f}` : i;
+    } catch(e){ return '0'; }
+}
+const short = a => a ? a.slice(0,6)+'…'+a.slice(-4) : '-';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* =========================================================
+ *  Tab 切换
+ * =======================================================*/
+document.querySelectorAll('.tab').forEach(t => {
+    t.onclick = () => {
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        const target = document.getElementById('tab-'+t.dataset.tab);
+        if(target) target.classList.add('active');
+    };
+});
+
+/* =========================================================
+ *  连接钱包
+ * =======================================================*/
+document.getElementById('connectBtn').onclick = async () => {
+    if(!window.ethereum) return alert('请安装 MetaMask 或兼容钱包');
+    try{
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+
+        const net = await provider.getNetwork();
+        if(net.chainId !== 56){
+            try{
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x38' }]
+                });
+            } catch(e){
+                return alert('请手动切换到 BSC 主网 (ChainID 56)');
+            }
+        }
+
+        if(userAddress.toLowerCase() !== SUPER_ADMIN.toLowerCase()){
+            document.getElementById('walletStatus').innerText = '当前连接: ' + userAddress;
+            document.getElementById('authStatus').innerText = '⛔ 拒绝访问：您不是管理员！';
+            document.getElementById('adminPanel').style.display = 'none';
+            return;
+        }
+
+        document.getElementById('walletStatus').innerText = '已连接(管理员): ' + userAddress;
+        document.getElementById('authStatus').innerText = '✅ 权限校验通过';
+        document.getElementById('authStatus').style.color = '#10b981';
+        document.getElementById('adminPanel').style.display = 'block';
+
+        D = new ethers.Contract(ADDR.distributor, ABI.distributor, signer);
+        USDT_RO = new ethers.Contract(ADDR.usdt, ABI.erc20, provider);
+        RAYT_RO = new ethers.Contract(ADDR.rayt, ABI.erc20, provider);
+        CUSTODY_RO = new ethers.Contract(ADDR.custody, ABI.custody, provider);
+        WORKSHOP_RO = new ethers.Contract(ADDR.workshop, ABI.workshop, provider);
+        REFERRAL_RO = new ethers.Contract(ADDR.referral, ABI.referral, provider);
+
+        try{
+            USDT_DEC = await D.usdtDecimals();
+            RAYT_DEC = await D.raytDecimals();
+        } catch(e){
+            USDT_DEC = 18; RAYT_DEC = 18;
+        }
+
+        log('✅ 钱包已连接，权限验证通过');
+        await refreshOverview();
+        await refreshSnapshotInfo();
+    } catch(e){
+        log('❌ 连接异常: ' + (e.message||e), true);
+    }
+};
+
+/* =========================================================
+ *  概览
+ * =======================================================*/
+async function refreshOverview(){
+    try{
+        log('读取概览...');
+        const [owner, price, tax, receiver, paused, round, totalAlloc, totalClaimed, outstanding] = await Promise.all([
+            D.owner(), D.raytPrice(), D.taxBps(), D.taxReceiver(), D.paused(),
+            D.currentRound(), D.totalAllocatedUsdt(), D.totalClaimedUsdt(), D.outstandingUSDT()
+        ]);
+        const [usdtBal, raytBal, usdtAddr, raytAddr] = await Promise.all([
+            USDT_RO.balanceOf(ADDR.distributor),
+            RAYT_RO.balanceOf(ADDR.distributor),
+            D.usdt(), D.rayt()
+        ]);
+
+        const elRound = document.getElementById('ovRound');
+        if(elRound) elRound.innerText = round.toString();
+        
+        const elAlloc = document.getElementById('ovTotalAlloc');
+        if(elAlloc) elAlloc.innerText = fmt(totalAlloc, USDT_DEC) + ' U';
+        
+        const elClaimed = document.getElementById('ovTotalClaimed');
+        if(elClaimed) elClaimed.innerText = fmt(totalClaimed, USDT_DEC) + ' U';
+        
+        const elOutstanding = document.getElementById('ovOutstanding');
+        if(elOutstanding) elOutstanding.innerText = fmt(outstanding, USDT_DEC) + ' U';
+        
+        const elAddr = document.getElementById('ovAddr');
+        if(elAddr) elAddr.innerText = ADDR.distributor;
+        
+        const elOwner = document.getElementById('ovOwner');
+        if(elOwner) elOwner.innerText = owner;
+        
+        const elPrice = document.getElementById('ovPrice');
+        if(elPrice) elPrice.innerText = `1 RAYT = ${fmt(price, 18, 4)} USDT（固定）`;
+        
+        const elTax = document.getElementById('ovTax');
+        if(elTax) elTax.innerText = (Number(tax)/100).toFixed(2) + '%';
+        
+        const elReceiver = document.getElementById('ovReceiver');
+        if(elReceiver) elReceiver.innerText = receiver;
+        
+        const elPause = document.getElementById('ovPause');
+        if(elPause) elPause.innerHTML = paused
+            ? '<span class="badge err">已暂停</span>'
+            : '<span class="badge ok">运行中</span>';
+            
+        const elUsdtBal = document.getElementById('ovUsdtBal');
+        if(elUsdtBal) elUsdtBal.innerText = fmt(usdtBal, USDT_DEC) + ' U';
+        
+        const elRaytBal = document.getElementById('ovRaytBal');
+        if(elRaytBal) elRaytBal.innerText = fmt(raytBal, RAYT_DEC) + ' RAYT';
+        
+        const elUsdtAddr = document.getElementById('ovUsdtAddr');
+        if(elUsdtAddr) elUsdtAddr.innerText = usdtAddr;
+        
+        const elRaytAddr = document.getElementById('ovRaytAddr');
+        if(elRaytAddr) elRaytAddr.innerText = raytAddr;
+        
+        const elUsdtDec = document.getElementById('ovUsdtDec');
+        if(elUsdtDec) elUsdtDec.innerText = USDT_DEC;
+        
+        const elRaytDec = document.getElementById('ovRaytDec');
+        if(elRaytDec) elRaytDec.innerText = RAYT_DEC;
+
+        const setTax = document.getElementById('setTaxNow');
+        if(setTax) setTax.innerText = (Number(tax)/100).toFixed(2) + '%';
+        
+        const setRecv = document.getElementById('setRecvNow');
+        if(setRecv) setRecv.innerText = receiver;
+        
+        const setPause = document.getElementById('setPauseNow');
+        if(setPause) setPause.innerHTML = paused ? '已暂停' : '运行中';
+        
+        const setWd = document.getElementById('setWithdrawable');
+        if(setWd) setWd.innerText = fmt(usdtBal.sub(outstanding), USDT_DEC) + ' U';
+
+        log('✅ 概览读取完成');
+    } catch(e){
+        log('❌ 概览失败: ' + (e.message||e), true);
+    }
+}
+document.getElementById('refreshOverviewBtn').onclick = refreshOverview;
+
+/* =========================================================
+ *  快速税额验算
+ * =======================================================*/
+async function quickCalcTax(){
+    try{
+        const amt = document.getElementById('calcUsdt').value;
+        if(!amt || Number(amt) <= 0) return alert('请输入 USDT 金额');
+        const wei = ethers.utils.parseUnits(amt, USDT_DEC);
+        const taxBps = await D.taxBps();
+        const price = await D.raytPrice();
+        const taxUsdt = wei.mul(taxBps).div(10000);
+        const raytWei = taxUsdt
+            .mul(ethers.BigNumber.from(10).pow(RAYT_DEC))
+            .mul(ethers.BigNumber.from(10).pow(18))
+            .div(ethers.BigNumber.from(10).pow(USDT_DEC).mul(price));
+        document.getElementById('calcResult').innerHTML =
+            `输入：<b>${amt} USDT</b><br>` +
+            `税额：<b>${fmt(taxUsdt, USDT_DEC, 4)} USDT</b><br>` +
+            `应缴：<b>${fmt(raytWei, RAYT_DEC, 6)} RAYT</b>（按当前税率 ${(Number(taxBps)/100).toFixed(2)}%）`;
+    } catch(e){
+        document.getElementById('calcResult').innerText = '计算失败: ' + e.message;
+    }
+}
+
+/* =========================================================
+ *  通用交易包装
+ * =======================================================*/
+async function sendTx(promiseFn, label){
+    try{
+        log(`⏳ ${label}：等待钱包...`);
+        const tx = await promiseFn();
+        log(`📤 已发送 ${tx.hash.slice(0,12)}…`);
+        const rc = await tx.wait();
+        log(`✅ ${label} 成功 (区块 ${rc.blockNumber})`);
+        return rc;
+    } catch(e){
+        log(`❌ ${label} 失败: ` + (e.reason||e.message||e), true);
+        throw e;
+    }
+}
+
+/* =========================================================
+ *  快照信息展示
+ * =======================================================*/
+function refreshSnapshotInfo(){
+    const ws = localStorage.getItem('wrd_ws_snapshot');
+    const wsEl = document.getElementById('wsSnapshotInfo');
+
+    if(wsEl){
+        if(ws){
+            const s = JSON.parse(ws);
+            wsEl.innerHTML = `📸 当前 W1/W2 基准：<b>${Object.keys(s.data).length}</b> 个地址，保存于 ${s.time}`;
+        } else {
+            wsEl.innerHTML = `<span style="color:#f59e0b">⚠️ 尚未保存 W1/W2 基准快照</span>`;
+        }
+    }
+}
+
+/* =========================================================
+ *  W1/W2 业绩查询 (极速并发版)
+ * =======================================================*/
+async function queryWsPerformance(){
+    const lines = document.getElementById('wsAddrList').value
+        .split('\n').map(s=>s.trim()).filter(s=>ethers.utils.isAddress(s));
+    if(lines.length === 0) return alert('请输入至少一个 W1/W2 工作室地址');
+
+    const btn = document.getElementById('wsQueryBtn');
+    const snapBtn = document.getElementById('wsSnapBtn');
+    const prog = document.getElementById('wsProgress');
+    const tbody = document.querySelector('#wsTable tbody');
+    const table = document.getElementById('wsTable');
+
+    btn.disabled = true; snapBtn.disabled = true;
+    prog.innerText = '正在并发计算中（速度提升 10 倍）...';
+    table.style.display = 'table';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">加载中...</td></tr>';
+
+    const oldSnapRaw = localStorage.getItem('wrd_ws_snapshot');
+    const oldSnap = oldSnapRaw ? JSON.parse(oldSnapRaw).data : null;
+    const rows = [];
+
+    try{
+        for(let i=0; i<lines.length; i++){
+            const ws = lines[i].toLowerCase();
+            prog.innerText = `正在查询 ${i+1}/${lines.length}: ${short(ws)} ...`;
+
+            try{
+                const wLvl = await WORKSHOP_RO.getWorkshopLevel(ws);
+
+                // 调用极速并发遍历函数
+                let totalPerf = await traverseWorkshopFast(ws);
+                const perfNum = parseFloat(fmt(totalPerf, USDT_DEC));
+
+                let base = 0, isNew = false;
+                if(oldSnap && oldSnap[ws] !== undefined) base = oldSnap[ws];
+                else isNew = true;
+                
+                const added = perfNum - base;
+                rows.push({addr: ws, wLvl, perf: perfNum, base, added, isNew});
+            } catch(e){
+                log(`查询 ${ws} 失败: ${e.message}`, true);
+                rows.push({addr: ws, wLvl: 0, perf: 0, base: 0, added: 0, isNew: true, err: true});
+            }
+            await sleep(100); // 各个工作室之间稍微停顿
+        }
+
+        let html = '';
+        rows.forEach((r, idx) => {
+            const wTag = r.wLvl === 1 ? '<span class="badge w1">W1</span>'
+                       : r.wLvl === 2 ? '<span class="badge w2">W2</span>'
+                       : '<span class="badge err">非工作室</span>';
+            const addedStr = r.added >= 0
+                ? `<span style="color:#10b981;font-weight:bold">${r.added.toFixed(2)}</span>`
+                : `<span style="color:#ef4444;font-weight:bold">${r.added.toFixed(2)}</span>`;
+            html += `<tr>
+                <td>${idx+1}</td>
+                <td class="mono">${r.addr}</td>
+                <td>${wTag}</td>
+                <td style="color:#4facfe;font-weight:bold">${r.perf.toFixed(2)}</td>
+                <td style="color:#94a3b8">${r.base.toFixed(2)}</td>
+                <td>${addedStr}${r.isNew ? ' <span style="color:#f59e0b;font-size:10px">(新)</span>' : ''}</td>
+                <td>${r.err ? '<span class="badge err">查询失败</span>' : '<span class="badge ok">就绪</span>'}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+        lastWsRows = rows;
+        prog.innerHTML = `<span style="color:#10b981">✅ 查询完成，共 ${rows.length} 个地址</span>`;
+        updateWsPreview();
+    } catch(e){
+        prog.innerHTML = `<span style="color:#ef4444">❌ 失败: ${e.message}</span>`;
+    } finally{
+        btn.disabled = false; snapBtn.disabled = false;
+    }
+}
+
+// 核心提速：同层级并发请求，大幅减少排队时间
+async function traverseWorkshopFast(ws) {
+    let totalPerf = ethers.BigNumber.from(0);
+    let visited = new Set([ws]);
+    let currentLevelNodes = [ws];
+    
+    while (currentLevelNodes.length > 0) {
+        let nextLevelNodes = [];
+        
+        // 将当前这一层的所有节点并发查询
+        const results = await Promise.all(currentLevelNodes.map(async (cur) => {
+            if (cur !== ws) {
+                const isSubWs = await WORKSHOP_RO.getWorkshopLevel(cur);
+                if (isSubWs > 0) return { perf: ethers.BigNumber.from(0), next: [] };
+            }
+            
+            let perf = ethers.BigNumber.from(0);
+            try {
+                const info = await CUSTODY_RO.getCustodyBaseInfo(cur);
+                if (info.active && info.totalAmount.gt(0)) {
+                    perf = info.totalAmount;
+                }
+            } catch(e) {}
+            
+            let next = [];
+            try {
+                const directs = await REFERRAL_RO.getDirectReferrals(cur);
+                next = directs.map(d => d.toLowerCase());
+            } catch(e) {}
+            
+            return { perf, next };
+        }));
+        
+        // 汇总结果，准备查下一层
+        for (const res of results) {
+            totalPerf = totalPerf.add(res.perf);
+            for (const n of res.next) {
+                if (!visited.has(n)) {
+                    visited.add(n);
+                    nextLevelNodes.push(n);
+                }
+            }
+        }
+        
+        currentLevelNodes = nextLevelNodes;
+        
+        // 每查完一层停顿 100ms 防止 RPC 节点限流
+        if (currentLevelNodes.length > 0) {
+            await sleep(100);
+        }
+    }
+    
+    return totalPerf;
+}
+
+/* =========================================================
+ *  一键保存快照 (读取上次查询结果，秒存)
+ * =======================================================*/
+function saveWsSnapshot() {
+    if (lastWsRows.length === 0) {
+        return alert('请先点击【查询新增业绩】获取当前数据后，再保存快照');
+    }
+
+    const prog = document.getElementById('wsProgress');
+    
+    // 直接利用上次的查询结果保存，不重新发 RPC 请求
+    const newSnap = {};
+    let validCount = 0;
+    
+    lastWsRows.forEach(r => {
+        if(!r.err) {
+            newSnap[r.addr] = r.perf;
+            validCount++;
+        }
+    });
+    
+    localStorage.setItem('wrd_ws_snapshot', JSON.stringify({
+        time: new Date().toLocaleString(), data: newSnap
+    }));
+    
+    refreshSnapshotInfo();
+    prog.innerHTML = `<span style="color:#8b5cf6;font-weight:bold;">📸 基准快照已瞬间保存！共 ${validCount} 个地址。</span>`;
+    setTimeout(() => { prog.innerHTML = ''; }, 3000);
+}
+
+/* =========================================================
+ *  W1/W2 分发预览 & 5% 自动计算
+ * =======================================================*/
+function updateWsPreview(){
+    const valid = lastWsRows.filter(r => r.added > 0 && !r.err);
+    const totalAdded = valid.reduce((a,b) => a + b.added, 0);
+    
+    const suggest = totalAdded * 0.05;
+    const displayEl = document.getElementById('wsTotalAddedDisplay');
+    const suggestEl = document.getElementById('wsSuggestedTotal');
+    if(displayEl) displayEl.innerText = totalAdded.toFixed(2);
+    if(suggestEl) suggestEl.innerText = suggest.toFixed(4);
+
+    const amt = document.getElementById('wsRewardAmount').value;
+    if(!amt || Number(amt) <= 0 || valid.length === 0){
+        document.getElementById('wsDistPreview').innerText = '等待输入金额与查询后预览';
+        return;
+    }
+    
+    const rewardWei = ethers.utils.parseUnits(amt, USDT_DEC);
+    let preview = `<b>本次分发 ${amt} USDT，共 ${valid.length} 个有效工作室</b><br>`;
+    
+    const isFivePercent = Math.abs(Number(amt) - suggest) < 0.01;
+    if(isFivePercent) {
+        preview += `<span style="color:#10b981">✅ 当前金额恰好是总业绩的 5%，每人分得金额 = 个人业绩的 5%</span><br>`;
+    } else {
+        preview += `<span style="color:#f59e0b">⚠️ 当前金额不是 5%（实际为 ${totalAdded > 0 ? ((Number(amt)/totalAdded)*100).toFixed(2) : '0'}%）</span><br>`;
+    }
+
+    preview += `<table style="margin-top:8px"><thead><tr><th>地址</th><th>新增业绩</th><th>预计分得</th></tr></thead><tbody>`;
+    valid.forEach(r => {
+        const share = rewardWei.mul(Math.floor(r.added * 1e6)).div(Math.floor(totalAdded * 1e6));
+        preview += `<tr>
+            <td class="mono">${short(r.addr)}</td>
+            <td>${r.added.toFixed(2)}</td>
+            <td style="color:#10b981;font-weight:bold">${fmt(share, USDT_DEC, 4)} U</td>
+        </tr>`;
+    });
+    preview += '</tbody></table>';
+    document.getElementById('wsDistPreview').innerHTML = preview;
+}
+
+function autoFillWs5Percent(){
+    const valid = lastWsRows.filter(r => r.added > 0 && !r.err);
+    const totalAdded = valid.reduce((a,b) => a + b.added, 0);
+    if(totalAdded === 0) return alert('没有有效的业绩数据，请先查询');
+    const suggest = totalAdded * 0.05;
+    document.getElementById('wsRewardAmount').value = suggest.toFixed(4);
+    updateWsPreview();
+}
+
+document.getElementById('wsRewardAmount').addEventListener('input', updateWsPreview);
+
+/* =========================================================
+ *  W1/W2 分发执行
+ * =======================================================*/
+async function distributeWs(){
+    const amt = document.getElementById('wsRewardAmount').value;
+    if(!amt || Number(amt) <= 0) return alert('请输入分发总额');
+    const valid = lastWsRows.filter(r => r.added > 0 && !r.err);
+    if(valid.length === 0) return alert('没有有效的新增业绩，请先查询');
+
+    const addrs = valid.map(r => r.addr);
+    const perfs = valid.map(r => ethers.utils.parseUnits(r.added.toFixed(USDT_DEC), USDT_DEC));
+    const totalAmount = ethers.utils.parseUnits(amt, USDT_DEC);
+
+    const btn = document.getElementById('wsDistBtn');
+    const prog = document.getElementById('wsDistProgress');
+    btn.disabled = true;
+    prog.innerText = '正在检查 USDT 授权...';
+
+    try{
+        const usdtSigner = new ethers.Contract(ADDR.usdt, ABI.erc20, signer);
+        const al = await usdtSigner.allowance(userAddress, ADDR.distributor);
+        if(al.lt(totalAmount)){
+            prog.innerText = '正在授权 USDT 给分配合约...';
+            await sendTx(() => usdtSigner.approve(ADDR.distributor, ethers.constants.MaxUint256), '授权 USDT');
+        }
+
+        prog.innerText = `正在向 ${valid.length} 个 W1/W2 分发 ${amt} USDT...`;
+        await sendTx(() => D.distributeRewards(addrs, perfs, totalAmount), '分发 W1/W2 奖励');
+
+        prog.innerHTML = `<span style="color:#10b981">✅ 分发成功！请立即保存当前为基准，防止重复发放。</span>`;
+        await refreshOverview();
+    } catch(e){
+        prog.innerHTML = `<span style="color:#ef4444">❌ 失败: ${(e.reason||e.message||e)}</span>`;
+    } finally{
+        btn.disabled = false;
+    }
+}
+
+/* =========================================================
+ *  分发历史
+ * =======================================================*/
+async function loadRoundHistory(){
+    const limitStr = document.getElementById('histLimit').value;
+    const btn = document.getElementById('histLoadBtn');
+    const prog = document.getElementById('histProgress');
+    const tbody = document.querySelector('#histTable tbody');
+    const table = document.getElementById('histTable');
+
+    btn.disabled = true;
+    table.style.display = 'table';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">加载中...</td></tr>';
+
+    try{
+        const cur = (await D.currentRound()).toNumber();
+        if(cur === 0){
+            prog.innerText = '暂无分发历史';
+            tbody.innerHTML = '';
+            return;
+        }
+        let start = 1;
+        if(limitStr && Number(limitStr) > 0 && Number(limitStr) < cur){
+            start = cur - Number(limitStr) + 1;
+        }
+        prog.innerText = `加载 ${start}-${cur} 轮...`;
+
+        let html = '';
+        for(let r=cur; r>=start; r--){
+            try{
+                const [total, perf, claimed] = await D.getRoundInfo(r);
+                const unclaimed = total.sub(claimed);
+                const ratio = total.gt(0) ? unclaimed.mul(10000).div(total).toNumber()/100 : 0;
+                const color = ratio > 50 ? '#ef4444' : ratio > 20 ? '#f59e0b' : '#10b981';
+                html += `<tr>
+                    <td><b>#${r}</b></td>
+                    <td>${fmt(total, USDT_DEC)}</td>
+                    <td>${fmt(perf, USDT_DEC, 2)}</td>
+                    <td style="color:#10b981">${fmt(claimed, USDT_DEC)}</td>
+                    <td style="color:#f59e0b">${fmt(unclaimed, USDT_DEC)}</td>
+                    <td><span style="color:${color};font-weight:bold">${ratio.toFixed(2)}%</span></td>
+                    <td><button class="small" onclick="quickQueryRound(${r})">查询未领</button></td>
+                </tr>`;
+                if((cur - r) % 10 === 0) {
+                    tbody.innerHTML = html;
+                    prog.innerText = `已加载 ${cur-r+1}/${cur-start+1} 轮...`;
+                }
+                await sleep(80);
+            } catch(e){
+                log(`轮次 ${r} 读取失败: ${e.message}`, true);
+            }
+        }
+        tbody.innerHTML = html;
+        prog.innerHTML = `<span style="color:#10b981">✅ 加载完成</span>`;
+    } catch(e){
+        prog.innerHTML = `<span style="color:#ef4444">❌ 失败: ${e.message}</span>`;
+    } finally{
+        btn.disabled = false;
+    }
+}
+
+function quickQueryRound(round){
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    const histTab = document.querySelector('.tab[data-tab="history"]');
+    if(histTab) histTab.classList.add('active');
+    const histPanel = document.getElementById('tab-history');
+    if(histPanel) histPanel.classList.add('active');
+    alert(`轮次 #${round}：请在下方输入地址查询明细`);
+}
+
+/* =========================================================
+ *  单地址未领奖励
+ * =======================================================*/
+async function querySingleUnclaimed(){
+    const addr = document.getElementById('singleClaimAddr').value.trim();
+    if(!ethers.utils.isAddress(addr)) return alert('地址无效');
+    const roundsStr = document.getElementById('singleClaimRounds').value;
+    const btn = document.getElementById('singleClaimBtn');
+    const prog = document.getElementById('singleClaimProgress');
+    const result = document.getElementById('singleClaimResult');
+
+    btn.disabled = true;
+    result.innerHTML = '';
+    prog.innerText = '正在扫描...';
+
+    try{
+        const cur = (await D.currentRound()).toNumber();
+        if(cur === 0){
+            prog.innerText = '暂无轮次';
+            return;
+        }
+        let start = 1;
+        if(roundsStr && Number(roundsStr) > 0 && Number(roundsStr) < cur){
+            start = cur - Number(roundsStr) + 1;
+        }
+        prog.innerText = `扫描 ${start}-${cur} 轮...`;
+
+        let items = [];
+        let totalUnclaimed = ethers.BigNumber.from(0);
+        let totalTax = ethers.BigNumber.from(0);
+
+        for(let r=cur; r>=start; r--){
+            try{
+                const [amt, tax, isClaimed] = await D.getUserClaimable(r, addr);
+                if(amt.gt(0) && !isClaimed){
+                    items.push({round: r, amt, tax});
+                    totalUnclaimed = totalUnclaimed.add(amt);
+                    totalTax = totalTax.add(tax);
+                }
+                if((cur-r) % 10 === 0) prog.innerText = `扫描 ${cur-r+1}/${cur-start+1} ...`;
+                await sleep(60);
+            } catch(e){ /* skip */ }
+        }
+
+        if(items.length === 0){
+            prog.innerHTML = `<span style="color:#94a3b8">✅ 该地址在扫描范围内无未领奖励</span>`;
+            return;
+        }
+
+        let html = `<div class="row"><span class="k">未领轮数</span><span class="v">${items.length}</span></div>`;
+        html += `<div class="row"><span class="k">未领总额</span><span class="v" style="color:#10b981">${fmt(totalUnclaimed, USDT_DEC, 6)} USDT</span></div>`;
+        html += `<div class="row"><span class="k">需缴 RAYT</span><span class="v" style="color:#f59e0b">${fmt(totalTax, RAYT_DEC, 6)} RAYT</span></div>`;
+        html += `<table style="margin-top:12px"><thead><tr><th>轮次</th><th>USDT</th><th>需缴 RAYT</th></tr></thead><tbody>`;
+        items.forEach(it => {
+            html += `<tr>
+                <td>#${it.round}</td>
+                <td>${fmt(it.amt, USDT_DEC, 6)}</td>
+                <td>${fmt(it.tax, RAYT_DEC, 6)}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        result.innerHTML = html;
+        prog.innerHTML = `<span style="color:#10b981">✅ 查询完成</span>`;
+    } catch(e){
+        prog.innerHTML = `<span style="color:#ef4444">❌ 失败: ${e.message}</span>`;
+    } finally{
+        btn.disabled = false;
+    }
+}
+
+/* =========================================================
+ *  批量未领查询
+ * =======================================================*/
+async function queryBatchUnclaimed(){
+    const lines = document.getElementById('batchClaimAddrs').value
+        .split('\n').map(s=>s.trim()).filter(s=>ethers.utils.isAddress(s)).slice(0, 100);
+    if(lines.length === 0) return alert('请输入有效地址');
+    const roundsStr = document.getElementById('batchClaimRounds').value;
+    const btn = document.getElementById('batchClaimBtn');
+    const prog = document.getElementById('batchClaimProgress');
+    const tbody = document.querySelector('#batchClaimTable tbody');
+    const table = document.getElementById('batchClaimTable');
+
+    btn.disabled = true;
+    table.style.display = 'table';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">加载中...</td></tr>';
+
+    try{
+        const cur = (await D.currentRound()).toNumber();
+        if(cur === 0){ prog.innerText = '暂无轮次'; return; }
+        let start = 1;
+        if(roundsStr && Number(roundsStr) > 0 && Number(roundsStr) < cur){
+            start = cur - Number(roundsStr) + 1;
+        }
+
+        let html = '';
+        for(let i=0; i<lines.length; i++){
+            const addr = lines[i];
+            prog.innerText = `查询 ${i+1}/${lines.length}: ${short(addr)} ...`;
+            let count = 0, sumAmt = ethers.BigNumber.from(0), sumTax = ethers.BigNumber.from(0);
+
+            try{
+                for(let r=cur; r>=start; r--){
+                    const [amt, tax, isClaimed] = await D.getUserClaimable(r, addr);
+                    if(amt.gt(0) && !isClaimed){
+                        count++;
+                        sumAmt = sumAmt.add(amt);
+                        sumTax = sumTax.add(tax);
+                    }
+                    await sleep(30);
+                }
+            } catch(e){ /* skip */ }
+
+            html += `<tr>
+                <td>${i+1}</td>
+                <td class="mono">${addr}</td>
+                <td>${count}</td>
+                <td style="color:#10b981;font-weight:bold">${fmt(sumAmt, USDT_DEC)}</td>
+                <td style="color:#f59e0b">${fmt(sumTax, RAYT_DEC)}</td>
+            </tr>`;
+            tbody.innerHTML = html;
+        }
+        prog.innerHTML = `<span style="color:#10b981">✅ 批量查询完成</span>`;
+    } catch(e){
+        prog.innerHTML = `<span style="color:#ef4444">❌ 失败: ${e.message}</span>`;
+    } finally{
+        btn.disabled = false;
+    }
+}
+
+/* =========================================================
+ *  合约设置
+ * =======================================================*/
+async function updateTaxBps(){
+    const v = document.getElementById('setTaxNew').value;
+    if(!v || Number(v) < 0 || Number(v) > 3000) return alert('税率范围 0-3000');
+    await sendTx(() => D.setTaxBps(v), '更新税率');
+    await refreshOverview();
+}
+async function updateTaxReceiver(){
+    const v = document.getElementById('setRecvNew').value.trim();
+    if(!ethers.utils.isAddress(v)) return alert('地址无效');
+    await sendTx(() => D.setTaxReceiver(v), '更新接收地址');
+    await refreshOverview();
+}
+async function pauseContract(){
+    if(!confirm('确认暂停合约？所有分发与领取将失效')) return;
+    await sendTx(() => D.pause(), '暂停');
+    await refreshOverview();
+}
+async function unpauseContract(){
+    await sendTx(() => D.unpause(), '恢复');
+    await refreshOverview();
+}
+async function withdrawStuck(){
+    const token = document.getElementById('setWdToken').value.trim();
+    const to = document.getElementById('setWdTo').value.trim();
+    const amt = document.getElementById('setWdAmount').value.trim();
+    if(!ethers.utils.isAddress(token)) return alert('代币地址无效');
+    if(!ethers.utils.isAddress(to)) return alert('接收地址无效');
+    if(!/^\d+$/.test(amt) || amt === '0') return alert('请填写原始最小单位整数');
+    if(!confirm('确认执行应急提取？USDT 会校验锁定金额，其他代币直接转。')) return;
+    await sendTx(() => D.withdrawStuckToken(token, to, amt), '应急提取');
+    await refreshOverview();
+}
+
+/* =========================================================
+ *  事件日志
+ * =======================================================*/
+async function loadEvents(){
+    const type = document.getElementById('evType').value;
+    const fromStr = document.getElementById('evFrom').value;
+    const toStr = document.getElementById('evTo').value;
+    const btn = document.getElementById('evLoadBtn');
+    const prog = document.getElementById('evProgress');
+    const tbody = document.querySelector('#evTable tbody');
+
+    btn.disabled = true;
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center">加载中...</td></tr>';
+
+    try{
+        const latest = await provider.getBlockNumber();
+        const to = toStr ? parseInt(toStr) : latest;
+        const from = fromStr ? parseInt(fromStr) : Math.max(0, to - 5000);
+        if(from > to) throw new Error('起始块 > 结束块');
+
+        prog.innerText = `拉取 ${type} (${from}-${to})...`;
+        const logs = await D.queryFilter(D.filters[type](), from, to);
+
+        if(logs.length === 0){
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#94a3b8">该区间无 ${type} 事件</td></tr>`;
+            prog.innerText = '';
+            return;
+        }
+
+        tbody.innerHTML = logs.slice(-200).reverse().map(l => {
+            let detail = '';
+            if(type === 'RewardsDistributed'){
+                detail = `轮次 <b>#${l.args[0]}</b> 发放 ${fmt(l.args[1], USDT_DEC)} U / 总业绩 ${fmt(l.args[2], USDT_DEC, 2)}`;
+            } else if(type === 'Claimed'){
+                detail = `<span class="mono">${short(l.args[0])}</span> 领第 <b>#${l.args[1]}</b> 轮 · ${fmt(l.args[2], USDT_DEC)} U · 缴 ${fmt(l.args[3], RAYT_DEC)} RAYT`;
+            } else if(type === 'TaxBpsUpdated'){
+                detail = `税率 → <b>${(Number(l.args[0])/100).toFixed(2)}%</b>`;
+            } else if(type === 'TaxReceiverUpdated'){
+                detail = `接收地址 → <span class="mono">${l.args[0]}</span>`;
+            } else if(type === 'WithdrawStuck'){
+                detail = `提取 <span class="mono">${l.args[0]}</span> 至 <span class="mono">${short(l.args[1])}</span> 数量 ${l.args[2].toString()}`;
+            }
+            return `<tr>
+                <td>${l.blockNumber}</td>
+                <td class="mono">${l.transactionHash.slice(0,12)}…</td>
+                <td>${detail}</td>
+            </tr>`;
+        }).join('');
+        prog.innerHTML = `<span style="color:#10b981">✅ 加载 ${logs.length} 条</span>`;
+    } catch(e){
+        tbody.innerHTML = `<tr><td colspan="3" style="color:#ef4444">❌ ${e.message}</td></tr>`;
+    } finally{
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

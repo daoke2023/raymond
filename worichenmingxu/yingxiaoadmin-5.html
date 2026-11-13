@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>营销分红管理后台 (单池极简版)</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui;background:#0a0f1e;color:#eef;padding:20px}
+.container{max-width:1400px;margin:0 auto}
+h1{margin-bottom:20px;border-left:4px solid #f59e0b;padding-left:16px}
+.card{background:#141b2b;border-radius:20px;padding:20px;margin-bottom:20px;border:1px solid #2a3a5a}
+.card h2{color:#fbbf24;margin-bottom:14px;font-size:17px;border-bottom:1px solid #2a3a5a;padding-bottom:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px}
+input,select,textarea{background:#0f1622;border:1px solid #2a3a5a;color:#eef;padding:10px;border-radius:12px;width:100%;margin:6px 0;font-family:inherit}
+button{background:#2a6df4;border:none;color:#fff;padding:10px 20px;border-radius:30px;cursor:pointer;margin-top:8px;font-size:14px;width:100%;transition:.2s}
+button:hover{filter:brightness(1.1)}
+button.red{background:#8b3c3c} button.green{background:#10b981} button.orange{background:#f59e0b} button.purple{background:#8b5cf6}
+.log{background:#0f1622;border-radius:14px;padding:10px;font-family:monospace;font-size:12px;max-height:300px;overflow-y:auto;margin-top:12px;border:1px solid #2a3a5a}
+.row{display:flex;justify-content:space-between;background:#0f1622;padding:10px 14px;border-radius:12px;margin:6px 0;font-size:13px;align-items:center;flex-wrap:wrap;gap:8px}
+.warning{color:#ffaa66;font-size:12px;margin-top:6px;line-height:1.5}
+.badge{padding:2px 10px;border-radius:20px;font-size:12px;font-weight:bold}
+.badge.ok{background:#10b98130;color:#34d399} .badge.off{background:#6b728030;color:#9ca3af}
+.badge.w1{background:#3b82f630;color:#60a5fa} .badge.w2{background:#8b5cf630;color:#a78bfa} .badge.c{background:#f59e0b30;color:#fbbf24}
+.tabs{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:10px 20px;border-radius:30px;cursor:pointer;font-size:14px;font-weight:600;background:rgba(0,0,0,.4);border:1px solid #2a3a5a;color:#cbd5ff}
+.tab.active{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;border-color:transparent}
+.panel{display:none}.panel.active{display:block}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+th{background:#0f1622;padding:10px;text-align:left;color:#fbbf24;white-space:nowrap}
+td{padding:10px;border-bottom:1px solid #1f2a40;white-space:nowrap}
+.pool-card{background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(245,158,11,.05));border:1px solid rgba(251,191,36,.3);border-radius:16px;padding:16px}
+.tier-row{display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:8px;align-items:center;margin:6px 0;font-size:13px}
+.tier-row input{margin:0;padding:8px}
+/* 汇总表样式 */
+.summary-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+.summary-table th { background: #1a2438; color: #90b4ff; padding: 12px 10px; text-align: center; border: 1px solid #2a3a5a; }
+.summary-table td { padding: 10px; text-align: center; border: 1px solid #2a3a5a; font-family: monospace; }
+.summary-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+.summary-table tr:hover { background: rgba(79,172,254,0.1); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎯 营销分红管理后台 (单池极简版)</h1>
+
+  <div class="card">
+    <button id="connectBtn" style="max-width:300px;">连接 Owner 钱包</button>
+    <div id="walletStatus" style="margin-top:10px;font-family:monospace">未连接</div>
+    <div id="authStatus" style="margin-top:8px;color:#ef4444;font-weight:bold;"></div>
+    <div id="contractAddr" style="margin-top:8px;font-size:12px;color:#94a3b8;font-family:monospace;"></div>
+  </div>
+
+  <div id="adminPanel" style="display:none">
+    <div class="tabs">
+      <div class="tab active" data-tab="overview">📊 概览</div>
+      <div class="tab" data-tab="tiers">⚙️ 级别比例</div>
+      <div class="tab" data-tab="members">👥 成员管理</div>
+      <div class="tab" data-tab="distribute">💰 分发操作</div>
+      <div class="tab" data-tab="manual">🎁 手动补贴</div>
+      <div class="tab" data-tab="deposit">💵 注入/提取</div>
+      <div class="tab" data-tab="auto">🤖 自动分发</div>
+      <div class="tab" data-tab="blacklist">🚫 黑名单</div>
+      <div class="tab" data-tab="query">🔍 地址查询</div>
+    </div>
+
+    <!-- 概览 -->
+    <div class="panel active" id="tab-overview">
+      <div class="pool-card">
+        <h3>🪙 RAYC-A 分红池</h3>
+        <div class="row"><span>当前余额</span><span id="ovRaycABal" style="color:#10b981;font-weight:bold;font-size:16px;">-</span></div>
+        <div class="row"><span>累计分发</span><span id="ovRaycADist">-</span></div>
+        <div class="row"><span>累计手动补贴</span><span id="ovRaycAManual">-</span></div>
+      </div>
+      <div class="card" style="margin-top:20px">
+        <h2>📊 全局统计</h2>
+        <div class="row"><span>分发次数</span><span id="ovDistCount">-</span></div>
+        <div class="row"><span>自动分发模式</span><span id="ovAutoMode">-</span></div>
+        <div class="row"><span>上次分发时间</span><span id="ovLastTime">-</span></div>
+        <button class="green" onclick="refreshOverview()">🔄 刷新</button>
+      </div>
+    </div>
+
+    <!-- 级别比例 -->
+    <div class="panel" id="tab-tiers">
+      <div class="card">
+        <h2>⚙️ 级别分红比例（BPS，10000 = 100%）</h2>
+        <div class="warning">⚠️ 修改后点底部"保存"按钮。级别总和不能超过 10000。</div>
+        <div id="tierEditor">
+          <div class="tier-row" style="font-weight:bold;color:#fbbf24">
+            <span>级别</span><span>分配 BPS</span><span>成员数</span><span>累计每成员</span>
+          </div>
+          <div id="tierRows"></div>
+        </div>
+        <button class="green" onclick="saveTierAllocations()" style="margin-top:15px">💾 保存级别比例</button>
+      </div>
+    </div>
+
+    <!-- 成员管理 -->
+    <div class="panel" id="tab-members">
+      <div class="grid">
+        <div class="card">
+          <h2>➕ 添加/修改成员</h2>
+          <label>钱包地址</label>
+          <input type="text" id="mAddr" placeholder="0x...">
+          <label>级别</label>
+          <select id="mTier">
+            <option value="1">W1（工作室）</option>
+            <option value="2">运营中心</option>
+            <option value="3">C1</option><option value="4">C2</option><option value="5">C3</option>
+            <option value="6">C4</option><option value="7">C5</option><option value="8">C6</option>
+            <option value="9">C7</option><option value="10">C8</option><option value="11">C9</option>
+          </select>
+          <button class="green" onclick="addMember()">✅ 添加/修改</button>
+          <button class="red" onclick="removeMember()">❌ 移除</button>
+        </div>
+        <div class="card">
+          <h2>📦 批量添加</h2>
+          <label>级别</label>
+          <select id="batchTier">
+            <option value="1">W1</option><option value="2">运营中心</option>
+            <option value="3">C1</option><option value="4">C2</option><option value="5">C3</option>
+            <option value="6">C4</option><option value="7">C5</option><option value="8">C6</option>
+            <option value="9">C7</option><option value="10">C8</option><option value="11">C9</option>
+          </select>
+          <label>地址列表（每行一个）</label>
+          <textarea id="batchAddrs" rows="6" placeholder="0x...&#10;0x..."></textarea>
+          <button class="green" onclick="batchAddMembers()">📥 批量添加</button>
+        </div>
+      </div>
+      
+      <div class="card" style="margin-top:20px">
+        <h2>📋 各级别链上成员数</h2>
+        <div class="warning">读取合约里各级别的实际人数统计。</div>
+        <div id="memberList" style="margin-top:10px;font-size:13px;line-height:2"></div>
+        <button class="green" onclick="refreshMembers()" style="margin-top:10px">🔄 刷新人数</button>
+      </div>
+
+      <!-- 极速合约直查面板 -->
+      <div class="card" style="margin-top:20px; border-color:#10b981; border-width:2px;">
+        <h2 style="color:#10b981">📊 一键拉取全量历史成员与汇总</h2>
+        <div class="warning">
+          直接通过合约内部数组读取，瞬间查出所有人的级别、待领金额、已领金额，并生成<b>按级别汇总的报表</b>。
+        </div>
+        
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button class="green" onclick="fetchAllMembersFast()" id="fetchFastBtn" style="flex:1;">⚡ 极速读取并汇总</button>
+          <button class="purple" onclick="exportTableToCSV('batchResultTable', '营销全量成员名单.csv')" style="width:200px; margin-top:8px;">📥 导出明细 CSV</button>
+        </div>
+        
+        <div id="fetchProgress" style="margin-top:10px; font-size:13px; color:#f59e0b; font-weight:bold;"></div>
+        
+        <!-- 按级别分红汇总看板 -->
+        <div id="tierSummaryPanel" style="display:none; margin-top:20px; background: rgba(16,185,129,0.05); border-radius: 12px; border: 1px solid #10b981; padding: 15px;">
+            <h3 style="color:#10b981; margin-bottom:10px;">🏆 各等级累计分红汇总 (来自合约)</h3>
+            <div style="overflow-x:auto;">
+                <table class="summary-table" id="tierSummaryTable">
+                    <thead>
+                        <tr>
+                            <th>级别</th>
+                            <th>人数</th>
+                            <th>RAYC-A 待领总额</th>
+                            <th>RAYC-A 已领总额</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; border-top:1px solid #2a3a5a; padding-top:15px;">
+          <div style="font-size:13px; color:#94a3b8;">明细结果：<span id="totalFoundCount" style="color:#10b981; font-weight:bold;">0</span> 个地址</div>
+        </div>
+
+        <div style="margin-top:10px; max-height: 500px; overflow-y: auto; overflow-x: auto;">
+          <table id="batchResultTable" style="display:none;">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>钱包地址</th>
+                <th>级别</th>
+                <th>RAYC-A 待领</th>
+                <th>RAYC-A 已领</th>
+                <th>黑名单</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 分发操作 -->
+    <div class="panel" id="tab-distribute">
+      <div class="grid">
+        <div class="card">
+          <h2>💰 分发</h2>
+          <button class="green" onclick="distributePool()">💵 分发全部池子余额</button>
+          <hr style="border-color:#2a3a5a;margin:15px 0">
+          <label>指定数量分发（仅 owner）</label>
+          <input type="number" id="distAmt" placeholder="输入数量（留空=全部）">
+          <button class="orange" onclick="distributeAmount()">📤 按数量分发</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 手动补贴 -->
+    <div class="panel" id="tab-manual">
+      <div class="card">
+        <h2>🎁 手动发放"新增业绩补贴"</h2>
+        <div class="warning">直接从池子转给用户，不走级别分润系统，不影响其他成员的待领金额。</div>
+        <label>接收地址</label>
+        <input type="text" id="mrAddr" placeholder="0x...">
+        <label>补贴数量</label>
+        <input type="number" id="mrAmt" placeholder="输入数量">
+        <label>备注（链上记录）</label>
+        <input type="text" id="mrMemo" placeholder="例如：2024年Q4新增业绩补贴">
+        <button class="green" onclick="manualReward()">🎁 发放补贴</button>
+      </div>
+    </div>
+
+    <!-- 注入/提取 -->
+    <div class="panel" id="tab-deposit">
+      <div class="grid">
+        <div class="card">
+          <h2>💵 注入代币</h2>
+          <div class="warning">注入前需先授权营销合约使用 RAYC-A。</div>
+          <label>RAYC-A 数量</label>
+          <input type="number" id="depRaycA" placeholder="例如 10000">
+          <button class="green" onclick="depositToken()">注入 RAYC-A</button>
+        </div>
+        <div class="card">
+          <h2>💸 提取代币（管理员绝对权限）</h2>
+          <div class="warning" style="color:#ef4444">⚠️ 提取会动用池子余额。请谨慎操作。</div>
+          <label>提取目标地址</label>
+          <input type="text" id="wdTo" placeholder="0x...">
+          <label>提取数量</label>
+          <input type="number" id="wdAmt" placeholder="输入数量">
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button class="orange" onclick="withdrawToken(false)" style="flex:1">💸 按数量提取</button>
+            <button class="red" onclick="withdrawToken(true)" style="flex:1">🔥 全额提取</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 自动分发 -->
+    <div class="panel" id="tab-auto">
+      <div class="card">
+        <h2>🤖 自动分发设置</h2>
+        <div class="row"><span>当前状态</span><span id="autoStatus">-</span></div>
+        <div class="row"><span>当前间隔</span><span id="autoInterval">-</span></div>
+        <div class="row"><span>上次分发</span><span id="autoLastTime">-</span></div>
+        <div class="row"><span>是否可触发</span><span id="autoCanTrigger">-</span></div>
+        <div class="warning">开启后：任何人在满足间隔时间后都可以触发 distribute。关闭后：只有 owner 可以分发，且无间隔限制。</div>
+        <label>间隔秒数（例如 86400 = 24 小时）</label>
+        <input type="number" id="autoIntInput" placeholder="86400">
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <button class="green" onclick="setAuto(true)" style="flex:1">✅ 开启自动</button>
+          <button class="red" onclick="setAuto(false)" style="flex:1">❌ 关闭自动</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 黑名单 -->
+    <div class="panel" id="tab-blacklist">
+      <div class="card">
+        <h2>🚫 分红黑名单</h2>
+        <div class="warning">被拉黑用户将无法 claim 池子的待领金额。</div>
+        <label>钱包地址</label>
+        <input type="text" id="blAddr" placeholder="0x...">
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <button class="red" onclick="setBlocked(true)" style="flex:1">🚫 拉黑</button>
+          <button class="green" onclick="setBlocked(false)" style="flex:1">✅ 解除</button>
+        </div>
+        <button onclick="checkBlocked()" style="margin-top:10px">🔍 查询该地址状态</button>
+        <div id="blResult" style="margin-top:10px;font-size:13px"></div>
+      </div>
+    </div>
+
+    <!-- 地址查询 -->
+    <div class="panel" id="tab-query">
+      <div class="card">
+        <h2>🔍 用户详情查询</h2>
+        <input type="text" id="qAddr" placeholder="0x...">
+        <button class="green" onclick="queryUser()">🔍 查询</button>
+        <div id="qResult" style="margin-top:15px;font-size:13px;line-height:2"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="log" id="log">📋 操作日志</div>
+</div>
+
+<script>
+// ============ 配置区 ============
+// ⚠️ 填入你新部署的 V8 营销合约地址！
+const MARKETING_ADDR = "0xDE5d27325C353F84310763635468eD0b704239c8"; 
+
+const ADDR = {
+    raycA: "0x3479bfA6e0f681A3763961b95759f477DE7Cc9a9" // RAYC-A 地址
+};
+
+const SUPER_ADMIN = "0x1a01B7C72bc0C7021a54e9E4027994D8AB6f5998";
+
+const ABI = {
+    erc20: [
+        "function approve(address,uint256) returns (bool)",
+        "function allowance(address,address) view returns (uint256)",
+        "function balanceOf(address) view returns (uint256)"
+    ],
+    marketing: [
+        "function owner() view returns (address)",
+        "function addMember(address,uint8)",
+        "function batchAddMembers(address[],uint8)",
+        "function removeMember(address)",
+        "function batchSetTierAllocation(uint8[],uint256[])",
+        "function distribute()",
+        "function distributeAmount(uint256)",
+        "function manualReward(address,uint256,string)",
+        "function depositRAYC_A(uint256)",
+        "function emergencyWithdraw(address,uint256)",
+        "function emergencyWithdrawAll(address)",
+        "function setAutoDistribute(bool,uint256)",
+        "function autoDistributeEnabled() view returns (bool)",
+        "function autoDistributeInterval() view returns (uint256)",
+        "function lastDistributeTime() view returns (uint256)",
+        "function canTriggerDistribute() view returns (bool)",
+        "function setDividendBlocked(address,bool)",
+        "function dividendBlocked(address) view returns (bool)",
+        "function getPoolBalance() view returns (uint256)",
+        "function getUserInfo(address) view returns (uint8,uint256,uint256,uint256,bool)",
+        "function getTierInfo(uint8) view returns (uint256,uint256,uint256)",
+        "function totalDistributed() view returns (uint256)",
+        "function totalManualReward() view returns (uint256)",
+        "function distributeCount() view returns (uint256)",
+        "function getMembersLength() view returns (uint256)",
+        "function getMembers(uint256 start, uint256 count) view returns (address[])"
+    ]
+};
+
+const TIER_NAMES = {1:"W1",2:"运营中心",3:"C1",4:"C2",5:"C3",6:"C4",7:"C5",8:"C6",9:"C7",10:"C8",11:"C9"};
+
+let provider, signer, userAddress;
+let M;
+
+const logEl = document.getElementById('log');
+function log(m, err=false) {
+    const color = err ? '#ef4444' : '#10b981';
+    logEl.innerHTML += `<div style="color:${color}">[${new Date().toLocaleTimeString()}] ${m}</div>`;
+    logEl.scrollTop = logEl.scrollHeight;
+}
+function fmt(v, d=4) {
+    try { return parseFloat(ethers.utils.formatEther(v)).toLocaleString(undefined, {maximumFractionDigits: d}); }
+    catch(e){ return "0"; }
+}
+
+document.querySelectorAll('.tab[data-tab]').forEach(t => {
+    t.onclick = () => {
+        document.querySelectorAll('.tab[data-tab]').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        document.getElementById('tab-'+t.dataset.tab).classList.add('active');
+        if(t.dataset.tab === 'tiers') loadTierEditor();
+        if(t.dataset.tab === 'members') refreshMembers();
+        if(t.dataset.tab === 'auto') refreshAuto();
+        if(t.dataset.tab === 'overview') refreshOverview();
+    };
+});
+
+document.getElementById('connectBtn').onclick = async () => {
+    if(!window.ethereum) return alert('请安装 MetaMask');
+    try {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+
+        const net = await provider.getNetwork();
+        if(net.chainId !== 56) return alert('请切换到 BSC 主网');
+
+        if(userAddress.toLowerCase() !== SUPER_ADMIN.toLowerCase()) {
+            document.getElementById('walletStatus').innerText = '当前连接: ' + userAddress;
+            document.getElementById('authStatus').innerText = '⛔ 拒绝访问：非超级管理员';
+            document.getElementById('adminPanel').style.display = 'none';
+            return;
+        }
+
+        document.getElementById('walletStatus').innerText = '已连接: ' + userAddress;
+        document.getElementById('authStatus').innerText = '✅ 权限校验通过';
+        document.getElementById('authStatus').style.color = '#10b981';
+        document.getElementById('adminPanel').style.display = 'block';
+        document.getElementById('contractAddr').innerText = '营销合约地址: ' + MARKETING_ADDR;
+
+        M = new ethers.Contract(MARKETING_ADDR, ABI.marketing, signer);
+        document.getElementById('wdTo').value = userAddress;
+        log('✅ 钱包已连接');
+        refreshOverview();
+    } catch(e) {
+        log('连接失败: ' + e.message, true);
+    }
+};
+
+async function tx(promise, msg) {
+    try {
+        log('⏳ 等待交易...');
+        const res = await promise;
+        await res.wait();
+        log('✅ ' + msg);
+        refreshOverview();
+        return true;
+    } catch(e) {
+        log('❌ 失败: ' + (e.reason || e.message), true);
+        return false;
+    }
+}
+
+async function refreshOverview() {
+    if(!M) return;
+    try {
+        const bal = await M.getPoolBalance();
+        document.getElementById('ovRaycABal').innerText = fmt(bal) + ' RAYC-A';
+        document.getElementById('ovRaycADist').innerText = fmt(await M.totalDistributed()) + ' RAYC-A';
+        document.getElementById('ovRaycAManual').innerText = fmt(await M.totalManualReward()) + ' RAYC-A';
+
+        document.getElementById('ovDistCount').innerText = (await M.distributeCount()).toString();
+        const autoOn = await M.autoDistributeEnabled();
+        document.getElementById('ovAutoMode').innerHTML = autoOn
+            ? '<span class="badge ok">自动模式</span>'
+            : '<span class="badge off">手动模式</span>';
+        const last = (await M.lastDistributeTime()).toNumber();
+        document.getElementById('ovLastTime').innerText = last ? new Date(last*1000).toLocaleString() : '从未';
+    } catch(e) {
+        log('读取概览失败: ' + e.message, true);
+    }
+}
+
+async function loadTierEditor() {
+    if(!M) return;
+    const rowsEl = document.getElementById('tierRows');
+    let html = '';
+    for(let i = 1; i <= 11; i++) {
+        const info = await M.getTierInfo(i);
+        const bps = info[0].toString();
+        const cnt = info[1].toString();
+        const acc = (info[2] / 1e18).toFixed(6);
+        html += `<div class="tier-row">
+            <span><b>${TIER_NAMES[i]}</b></span>
+            <input type="number" id="tier-bps-${i}" value="${bps}" placeholder="0">
+            <span>${cnt} 人</span>
+            <span style="font-family:monospace;font-size:11px">${acc}</span>
+        </div>`;
+    }
+    rowsEl.innerHTML = html;
+}
+
+async function saveTierAllocations() {
+    if(!M) return;
+    const tierIds = [];
+    const bpss = [];
+    let sum = 0;
+    for(let i = 1; i <= 11; i++) {
+        const v = parseInt(document.getElementById('tier-bps-'+i).value || '0');
+        if(v < 0 || v > 10000) return alert('级别 ' + TIER_NAMES[i] + ' 的 BPS 无效');
+        tierIds.push(i);
+        bpss.push(v);
+        sum += v;
+    }
+    if(sum > 10000) return alert('总和超过 10000，请调整');
+    if(!confirm(`确认保存级别比例？\n总和：${sum} / 10000 (${(sum/100).toFixed(2)}%)`)) return;
+    await tx(M.batchSetTierAllocation(tierIds, bpss), `级别比例已更新`);
+    loadTierEditor();
+}
+
+async function addMember() {
+    const a = document.getElementById('mAddr').value.trim();
+    const t = parseInt(document.getElementById('mTier').value);
+    if(!ethers.utils.isAddress(a)) return alert('地址格式不正确');
+    await tx(M.addMember(a, t), `${a} 已设置为 ${TIER_NAMES[t]}`);
+}
+
+async function removeMember() {
+    const a = document.getElementById('mAddr').value.trim();
+    if(!ethers.utils.isAddress(a)) return alert('地址格式不正确');
+    if(!confirm(`确认移除 ${a} 的级别？（待领金额会保留到 pendingBalance）`)) return;
+    await tx(M.removeMember(a), `${a} 已移除级别`);
+}
+
+async function batchAddMembers() {
+    const lines = document.getElementById('batchAddrs').value.split('\n').map(s=>s.trim()).filter(s=>ethers.utils.isAddress(s));
+    const t = parseInt(document.getElementById('batchTier').value);
+    if(lines.length === 0) return alert('无有效地址');
+    if(!confirm(`确认将 ${lines.length} 个地址添加为 ${TIER_NAMES[t]}？`)) return;
+    await tx(M.batchAddMembers(lines, t), `批量添加 ${lines.length} 个 ${TIER_NAMES[t]} 成员成功`);
+}
+
+async function refreshMembers() {
+    if(!M) return;
+    let html = '';
+    for(let i = 1; i <= 11; i++) {
+        const info = await M.getTierInfo(i);
+        html += `<div class="row"><span><span class="badge ${i<=2?'w1':'c'}">${TIER_NAMES[i]}</span></span><span>${info[1].toString()} 人</span></div>`;
+    }
+    document.getElementById('memberList').innerHTML = html;
+}
+
+// ==================== 极速全量拉取与汇总 ====================
+async function fetchAllMembersFast() {
+    if(!M) return alert("请先连接钱包！");
+    const btn = document.getElementById('fetchFastBtn');
+    const progressEl = document.getElementById('fetchProgress');
+    const summaryPanel = document.getElementById('tierSummaryPanel');
+    summaryPanel.style.display = 'none';
+
+    btn.disabled = true;
+    btn.innerText = '⏳ 正在极速拉取...';
+    progressEl.innerText = '正在获取成员总数...';
+    
+    try {
+        const totalLen = (await M.getMembersLength()).toNumber();
+        if (totalLen === 0) {
+            progressEl.innerHTML = `<span style="color:#ef4444;">合约中暂无任何成员记录。</span>`;
+            btn.disabled = false; btn.innerText = '⚡ 极速读取并汇总';
+            return;
+        }
+
+        progressEl.innerText = `共发现 ${totalLen} 个成员，正在分批拉取地址...`;
+        let allAddresses = [];
+        const batchSize = 500; 
+        
+        for (let i = 0; i < totalLen; i += batchSize) {
+            let count = Math.min(batchSize, totalLen - i);
+            progressEl.innerText = `拉取地址进度 ${i} / ${totalLen} ...`;
+            const batch = await M.getMembers(i, count);
+            allAddresses = allAddresses.concat(batch);
+            await new Promise(r => setTimeout(r, 100));
+        }
+        
+        progressEl.innerText = `地址拉取完毕，正在并发查询并生成汇总...`;
+        await executeBatchQuery(allAddresses);
+        
+    } catch(e) {
+        progressEl.innerHTML = `<span style="color:#ef4444;">拉取失败: ${e.message}</span>`;
+        log(`❌ 拉取失败: ${e.message}`, true);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = '⚡ 极速读取并汇总';
+    }
+}
+
+async function executeBatchQuery(addrs) {
+    if(!M) return alert('请先连接钱包');
+    const tbody = document.querySelector('#batchResultTable tbody');
+    const table = document.getElementById('batchResultTable');
+    const countEl = document.getElementById('totalFoundCount');
+    const progressEl = document.getElementById('fetchProgress');
+    const summaryPanel = document.getElementById('tierSummaryPanel');
+    const summaryTbody = document.querySelector('#tierSummaryTable tbody');
+    
+    table.style.display = 'table';
+    tbody.innerHTML = '';
+    summaryPanel.style.display = 'none';
+    
+    let html = '';
+    let successCount = 0;
+    
+    // 汇总数据结构
+    const tierStats = {};
+    for(let i=1; i<=11; i++) {
+        tierStats[i] = {
+            count: 0,
+            pending: ethers.BigNumber.from(0), 
+            claimed: ethers.BigNumber.from(0)
+        };
+    }
+
+    const CONCURRENCY = 15;
+    
+    for(let i=0; i<addrs.length; i+=CONCURRENCY) {
+        progressEl.innerText = `查询分红进度 ${i} / ${addrs.length} ... (并发处理中)`;
+        const chunk = addrs.slice(i, i + CONCURRENCY);
+        
+        const promises = chunk.map(async (a) => {
+            try {
+                const info = await M.getUserInfo(a);
+                return { address: a, info };
+            } catch(e) {
+                return { address: a, error: true };
+            }
+        });
+        
+        const results = await Promise.all(promises);
+        
+        results.forEach((res, idx) => {
+            const index = i + idx + 1;
+            if (res.error) {
+                html += `<tr><td>${index}</td><td style="font-family:monospace;">${res.address}</td><td colspan="4" style="color:red;">查询失败</td></tr>`;
+            } else {
+                const t = res.info[0]; // 级别
+                const pending = res.info[1];
+                const claimed = res.info[2];
+                const blocked = res.info[4];
+
+                const tierName = t === 0 ? '<span style="color:#94a3b8;">无</span>' : `<span class="badge ${t<=2?'w1':'c'}">${TIER_NAMES[t]}</span>`;
+                
+                html += `<tr>
+                    <td>${index}</td>
+                    <td style="font-family:monospace;">${res.address}</td>
+                    <td>${tierName}</td>
+                    <td style="color:#fbbf24;">${fmt(pending, 2)}</td>
+                    <td style="color:#10b981;">${fmt(claimed, 2)}</td>
+                    <td>${blocked ? '🚫' : '✅'}</td>
+                </tr>`;
+                successCount++;
+
+                // 累加汇总
+                if (t > 0 && t <= 11) {
+                    tierStats[t].count += 1;
+                    tierStats[t].pending = tierStats[t].pending.add(pending);
+                    tierStats[t].claimed = tierStats[t].claimed.add(claimed);
+                }
+            }
+        });
+        
+        tbody.innerHTML = html;
+        await new Promise(r => setTimeout(r, 100));
+    }
+    
+    // 渲染汇总表
+    let summaryHtml = '';
+    for(let t=1; t<=11; t++) {
+        if(tierStats[t].count > 0) {
+            summaryHtml += `<tr>
+                <td><b class="badge ${t<=2?'w1':'c'}">${TIER_NAMES[t]}</b></td>
+                <td>${tierStats[t].count} 人</td>
+                <td style="color:#fbbf24;">${fmt(tierStats[t].pending, 2)}</td>
+                <td style="color:#10b981;">${fmt(tierStats[t].claimed, 2)}</td>
+            </tr>`;
+        }
+    }
+    summaryTbody.innerHTML = summaryHtml;
+    summaryPanel.style.display = 'block';
+
+    countEl.innerText = addrs.length;
+    progressEl.innerHTML = `<span style="color:#10b981;">✅ 查询完成！成功拉取 ${successCount} 人数据，汇总计算完毕。</span>`;
+    log(`✅ 全量成员分红查询及汇总成功，共 ${addrs.length} 个地址`);
+}
+
+function exportTableToCSV(tableID, filename) {
+    const table = document.getElementById(tableID);
+    if (table.style.display === 'none' || table.querySelector('tbody').children.length === 0) {
+        return alert('没有可导出的数据，请先查询。');
+    }
+    let csvContent = "\uFEFF"; 
+    const rows = table.querySelectorAll("tr");
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cols = row.querySelectorAll("th, td");
+        let rowData = [];
+        for (let j = 0; j < cols.length; j++) {
+            let text = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim();
+            rowData.push(`"${text}"`);
+        }
+        csvContent += rowData.join(",") + "\n";
+    }
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// ==================== 其它常规操作 ====================
+async function distributePool() {
+    const bal = await M.getPoolBalance();
+    if(bal.isZero()) return alert('该池子余额为 0');
+    if(!confirm(`确认分发 RAYC-A 池全部余额：${fmt(bal)} RAYC-A？`)) return;
+    await tx(M.distribute(), `分发成功`);
+}
+
+async function distributeAmount() {
+    const v = document.getElementById('distAmt').value;
+    if(!v || Number(v) <= 0) return alert('请输入数量');
+    const amt = ethers.utils.parseEther(v);
+    await tx(M.distributeAmount(amt), `按 ${v} 分发成功`);
+}
+
+async function manualReward() {
+    const a = document.getElementById('mrAddr').value.trim();
+    const v = document.getElementById('mrAmt').value;
+    const memo = document.getElementById('mrMemo').value || '新增业绩补贴';
+    if(!ethers.utils.isAddress(a)) return alert('地址格式不正确');
+    if(!v || Number(v) <= 0) return alert('数量无效');
+    const amt = ethers.utils.parseEther(v);
+    if(!confirm(`确认向 ${a} 发放 ${v} RAYC-A？\n备注：${memo}`)) return;
+    await tx(M.manualReward(a, amt, memo), '手动补贴发放成功');
+}
+
+async function depositToken() {
+    const v = document.getElementById('depRaycA').value;
+    if(!v || Number(v) <= 0) return alert('数量无效');
+    const amt = ethers.utils.parseEther(v);
+    
+    const token = new ethers.Contract(ADDR.raycA, ABI.erc20, signer);
+    const al = await token.allowance(userAddress, MARKETING_ADDR);
+    if(al.lt(amt)) {
+        log('⏳ 授权代币中...');
+        const tx = await token.approve(MARKETING_ADDR, ethers.constants.MaxUint256);
+        await tx.wait();
+        log('✅ 授权完成');
+    }
+    await tx(M.depositRAYC_A(amt), `注入 ${v} RAYC-A 成功`);
+}
+
+async function withdrawToken(isAll) {
+    const to = document.getElementById('wdTo').value.trim();
+    if(!ethers.utils.isAddress(to)) return alert('地址格式不正确');
+
+    if(isAll) {
+        if(!confirm(`⚠️ 确认全额提走池子全部余额到 ${to}？`)) return;
+        await tx(M.emergencyWithdrawAll(to), `全额提取成功`);
+    } else {
+        const v = document.getElementById('wdAmt').value;
+        if(!v || Number(v) <= 0) return alert('数量无效');
+        const amt = ethers.utils.parseEther(v);
+        if(!confirm(`确认提取 ${v} RAYC-A 到 ${to}？\n⚠️ 可能影响成员待领`)) return;
+        await tx(M.emergencyWithdraw(to, amt), `提取成功`);
+    }
+}
+
+async function refreshAuto() {
+    if(!M) return;
+    const on = await M.autoDistributeEnabled();
+    const interval = (await M.autoDistributeInterval()).toNumber();
+    const last = (await M.lastDistributeTime()).toNumber();
+    const can = await M.canTriggerDistribute();
+    document.getElementById('autoStatus').innerHTML = on ? '<span class="badge ok">✅ 已开启</span>' : '<span class="badge off">❌ 已关闭</span>';
+    document.getElementById('autoInterval').innerText = interval + ' 秒 (' + (interval/86400).toFixed(2) + ' 天)';
+    document.getElementById('autoLastTime').innerText = last ? new Date(last*1000).toLocaleString() : '-';
+    document.getElementById('autoCanTrigger').innerHTML = can ? '<span class="badge ok">✅ 现在任何人可触发</span>' : '<span class="badge off">⏳ 未到间隔时间</span>';
+    document.getElementById('autoIntInput').value = interval || 86400;
+}
+
+async function setAuto(enabled) {
+    const v = parseInt(document.getElementById('autoIntInput').value || '0');
+    if(enabled && (!v || v < 60)) return alert('间隔至少 60 秒');
+    await tx(M.setAutoDistribute(enabled, v || 86400), `自动分发已${enabled?'开启':'关闭'}`);
+    refreshAuto();
+}
+
+async function setBlocked(status) {
+    const a = document.getElementById('blAddr').value.trim();
+    if(!ethers.utils.isAddress(a)) return alert('地址格式不正确');
+    if(status && !confirm(`确认拉黑 ${a}？`)) return;
+    await tx(M.setDividendBlocked(a, status), `已${status?'拉黑':'解除'} ${a}`);
+}
+
+async function checkBlocked() {
+    const a = document.getElementById('blAddr').value.trim();
+    if(!ethers.utils.isAddress(a)) return alert('地址格式不正确');
+    const b = await M.dividendBlocked(a);
+    document.getElementById('blResult').innerHTML = b ? '<span style="color:#ef4444;font-weight:bold">🚫 已拉黑</span>' : '<span style="color:#10b981;font-weight:bold">✅ 状态正常</span>';
+}
+
+async function queryUser() {
+    const a = document.getElementById('qAddr').value.trim();
+    if(!ethers.utils.isAddress(a)) return alert('地址格式不正确');
+    try {
+        const info = await M.getUserInfo(a);
+        const tierId = info[0];
+        const tierName = tierId === 0 ? '无级别' : TIER_NAMES[tierId];
+        const html = `
+            <div class="row"><span>当前级别</span><span><b>${tierName}</b></span></div>
+            <hr style="border-color:#2a3a5a;margin:10px 0">
+            <div style="color:#fbbf24;font-weight:bold;margin-bottom:6px">📊 待领金额</div>
+            <div class="row"><span>RAYC-A 待领</span><span>${fmt(info[1])} RAYC-A</span></div>
+            <div style="color:#10b981;font-weight:bold;margin:10px 0 6px">✅ 累计已领</div>
+            <div class="row"><span>RAYC-A 已领</span><span>${fmt(info[2])} RAYC-A</span></div>
+            <div style="color:#f59e0b;font-weight:bold;margin:10px 0 6px">🎁 累计获得手动补贴</div>
+            <div class="row"><span>RAYC-A 补贴</span><span>${fmt(info[3])} RAYC-A</span></div>
+            <div class="row"><span>黑名单状态</span><span>${info[4] ? '🚫 已拉黑' : '✅ 正常'}</span></div>
+        `;
+        document.getElementById('qResult').innerHTML = html;
+    } catch(e) {
+        document.getElementById('qResult').innerText = '查询失败: ' + e.message;
+    }
+}
+
+setInterval(() => { if(M) refreshOverview(); }, 30000);
+</script>
+</body>
+</html>
