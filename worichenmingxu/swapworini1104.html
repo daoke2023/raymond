@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swap V10 风控管理后台</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+    :root {
+        --bg: #0b0f19; --card: #141b2b; --txt: #e2e8f0; --muted: #94a3b8;
+        --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--txt); padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+    .container { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 20px; }
+    
+    .header { display: flex; justify-content: space-between; align-items: center; background: var(--card); padding: 15px 25px; border-radius: 12px; border: 1px solid #1e293b; }
+    .header h1 { font-size: 20px; color: #fcd34d; display: flex; align-items: center; gap: 10px; }
+    .wallet-btn { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .wallet-btn:hover { background: #2563eb; }
+    .wallet-info { font-family: monospace; background: #0f172a; padding: 8px 12px; border-radius: 8px; color: var(--success); border: 1px solid #1e293b; display: none; }
+
+    .grid-data { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .data-card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 8px; }
+    .data-card .label { color: var(--muted); font-size: 13px; }
+    .data-card .value { font-size: 22px; font-weight: bold; color: #60a5fa; }
+
+    .panel { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid #1e293b; margin-bottom: 15px; }
+    .panel h3 { color: #fcd34d; margin-bottom: 15px; border-bottom: 1px solid #1e293b; padding-bottom: 10px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .form-row { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-end; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px; }
+    label { color: var(--muted); font-size: 13px; }
+    input { background: #0f172a; border: 1px solid #334155; color: white; padding: 12px; border-radius: 8px; outline: none; font-size: 14px; transition: 0.2s; }
+    input:focus { border-color: var(--primary); }
+    button { padding: 12px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; color: white; font-size: 14px; white-space: nowrap; }
+    button:hover { filter: brightness(1.1); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .btn-green { background: var(--success); }
+    .btn-red { background: var(--danger); }
+    .btn-blue { background: var(--primary); }
+    .btn-orange { background: var(--warning); color: #000; }
+
+    #statusBox { display: none; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 10px; }
+    .s-success { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid #10b981; }
+    .s-error { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid #ef4444; }
+    .s-warn { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid #f59e0b; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🛡️ Swap V10 风控后台</h1>
+        <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">连接管理员钱包</button>
+        <div class="wallet-info" id="walletInfo">未连接</div>
+    </div>
+
+    <div id="statusBox"></div>
+
+    <!-- 数据大屏 -->
+    <div class="grid-data">
+        <div class="data-card">
+            <div class="label">当前合约 Owner (多签)</div>
+            <div class="value" id="dataOwner" style="font-size: 13px; word-break: break-all; color: var(--muted);">加载中...</div>
+        </div>
+        <div class="data-card">
+            <div class="label">池子 RAYC-A 余额</div>
+            <div class="value" id="dataPoolBalance" style="color: var(--success);">--</div>
+        </div>
+        <div class="data-card">
+            <div class="label">全网今日已兑 (RAYT)</div>
+            <div class="value" id="dataGlobalSwapped" style="color: var(--warning);">--</div>
+        </div>
+    </div>
+
+    <!-- 核心控制面板 -->
+    <div id="adminPanel" style="display: none;">
+        
+        <!-- 面板 1：状态与价格 -->
+        <div class="panel">
+            <h3>
+                💱 兑换状态与比例
+                <button id="btnToggleSwap" class="btn-green" onclick="toggleSwap()">开启兑换</button>
+            </h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>固定兑换比例 (1 RAYC = ? RAYC-A)</label>
+                    <input type="number" id="inputRate" placeholder="例如 0.1" step="0.0001">
+                </div>
+                <button class="btn-blue" onclick="updateRate()">保存比例</button>
+            </div>
+            <p style="font-size:12px; color:var(--muted); margin-top:-5px;">当前比例: <span id="curRateText" style="color:#60a5fa">--</span></p>
+        </div>
+
+        <!-- 面板 2：风控限额 -->
+        <div class="panel">
+            <h3>🛡️ 风控参数设置</h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>每人每日限额 (RAYT)</label>
+                    <input type="number" id="inputUserLimit" placeholder="例如 10000">
+                </div>
+                <button class="btn-blue" onclick="updateUserLimit()">保存</button>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>全网每日限额 (RAYT) <span style="color:#ef4444">*重要</span></label>
+                    <input type="number" id="inputGlobalLimit" placeholder="例如 50000">
+                </div>
+                <button class="btn-blue" onclick="updateGlobalLimit()">保存</button>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>冷却时间 (小时) <span style="color:#f59e0b">0 代表不限制</span></label>
+                    <input type="number" id="inputCooldown" placeholder="例如 24">
+                </div>
+                <button class="btn-blue" onclick="updateCooldown()">保存</button>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>最低起换额度 (RAYT)</label>
+                    <input type="number" id="inputMinSwap" placeholder="例如 1000">
+                </div>
+                <button class="btn-blue" onclick="updateMinSwap()">保存</button>
+            </div>
+        </div>
+
+        <!-- 面板 3：黑名单与注资 -->
+        <div class="panel">
+            <h3>🚫 黑名单与资金管理</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>拉黑/解黑地址</label>
+                    <input type="text" id="inputBlacklistAddr" placeholder="0x...">
+                </div>
+                <div class="form-group">
+                    <label>操作</label>
+                    <select id="selectBlacklistStatus" style="padding:12px; border-radius:8px; background:#0f172a; color:white; border:1px solid #334155;">
+                        <option value="true">🚫 拉黑</option>
+                        <option value="false">✅ 解除</option>
+                    </select>
+                </div>
+                <button class="btn-red" onclick="updateBlacklist()">执行</button>
+            </div>
+
+            <div class="form-row" style="margin-top:20px; border-top:1px dashed #334155; padding-top:20px;">
+                <div class="form-group">
+                    <label>注入 RAYC-A 到池子</label>
+                    <input type="number" id="inputDepositAmount" placeholder="输入注入数量">
+                </div>
+                <button class="btn-green" onclick="depositPool()">授权并注入</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // ⚠️ 配置区：换成你部署好的 V10 合约地址
+    const CONTRACT_ADDRESS = "0x894f75eD6022800F6a17470d078074E6B30E5D9c"; 
+    
+    // RAYC-A 代币地址（用于授权和查池子余额）
+    const RAYC_A_ADDRESS = "0x3479bfA6e0f681A3763961b95759f477DE7Cc9a9";
+
+    const ABI = [
+        "function owner() view returns (address)",
+        "function swapEnabled() view returns (bool)",
+        "function exchangeRate() view returns (uint256)",
+        "function dailyLimitPerUser() view returns (uint256)",
+        "function dailyGlobalLimit() view returns (uint256)",
+        "function cooldownPeriod() view returns (uint256)",
+        "function minSwapAmount() view returns (uint256)",
+        "function globalDailySwapped() view returns (uint256)",
+        "function setSwapEnabled(bool _enabled)",
+        "function setExchangeRate(uint256 _newRate)",
+        "function setUserLimit(uint256 _newLimit)",
+        "function setGlobalLimit(uint256 _newLimit)",
+        "function setCooldownPeriod(uint256 _newPeriod)",
+        "function setMinSwapAmount(uint256 _newMin)",
+        "function setBlacklist(address _account, bool _status)",
+        "function depositRaycA(uint256 amount)"
+    ];
+    const ERC20_ABI = [
+        "function balanceOf(address) view returns (uint256)",
+        "function approve(address,uint256) returns (bool)"
+    ];
+
+    let provider, signer, userAddress, contract, raycAContract;
+    let globalAdminAddr = "";
+    const $ = id => document.getElementById(id);
+
+    function showStatus(msg, type = 's-success') {
+        const box = $("statusBox");
+        box.style.display = 'block';
+        box.className = type;
+        box.innerHTML = msg;
+        if(type !== 's-warn') { setTimeout(() => { box.style.display = 'none'; }, 5000); }
+    }
+
+    // 格式化工具
+    function parseNum(val) { return ethers.utils.parseEther(val.toString()); }
+    function formatNum(val, digits = 2) { 
+        if (!val) return "0";
+        return parseFloat(ethers.utils.formatEther(val)).toLocaleString(undefined, {maximumFractionDigits: digits});
+    }
+
+    async function connectWallet() {
+        if (!window.ethereum) return alert("请安装 MetaMask 或使用 TP/OKX 钱包！");
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            userAddress = accounts[0];
+            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            signer = provider.getSigner();
+
+            const net = await provider.getNetwork();
+            if (net.chainId !== 56) return alert("⚠️ 请切换到 BSC 主网！");
+
+            if (CONTRACT_ADDRESS.includes("填入")) {
+                return alert("请先在代码中填入你部署好的 V10 合约地址！");
+            }
+
+            contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            raycAContract = new ethers.Contract(RAYC_A_ADDRESS, ERC20_ABI, signer);
+
+            $("walletInfo").innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+            $("walletInfo").style.display = "block";
+            $("connectBtn").style.display = "none";
+            
+            await checkOwnerAndLoad();
+        } catch(e) {
+            alert("连接失败: " + e.message);
+        }
+    }
+
+    async function checkOwnerAndLoad() {
+        try {
+            globalAdminAddr = await contract.owner();
+            $("dataOwner").innerText = globalAdminAddr;
+            
+            // 前端权限门禁校验
+            if (globalAdminAddr.toLowerCase() !== userAddress.toLowerCase()) {
+                $("adminPanel").style.display = "none";
+                $("dataOwner").style.color = "#ef4444";
+                $("dataOwner").innerText += " (⚠️ 你非Owner，只能查看)";
+                showStatus("⚠️ 当前连接的钱包不是合约 Owner，无法修改参数。", "s-warn");
+            } else {
+                $("adminPanel").style.display = "block";
+                $("dataOwner").style.color = "#10b981";
+                $("dataOwner").innerText += " (✅ 拥有权限)";
+                showStatus("✅ 权限验证通过，已加载最新参数", "s-success");
+            }
+
+            await loadData();
+        } catch(e) {
+            showStatus("读取合约失败，请确认合约地址正确: " + e.message, "s-error");
+        }
+    }
+
+    async function loadData() {
+        try {
+            const isSwap = await contract.swapEnabled();
+            const rate = await contract.exchangeRate();
+            const userLimit = await contract.dailyLimitPerUser();
+            const globalLimit = await contract.dailyGlobalLimit();
+            const cooldown = await contract.cooldownPeriod();
+            const minSwap = await contract.minSwapAmount();
+            const todaySwapped = await contract.globalDailySwapped();
+            const poolBal = await raycAContract.balanceOf(CONTRACT_ADDRESS);
+
+            // 渲染大屏
+            $("dataPoolBalance").innerText = formatNum(poolBal, 2) + " RAYC-A";
+            $("dataGlobalSwapped").innerText = formatNum(todaySwapped, 2) + " RAYT";
+
+            // 回填表单
+            $("inputRate").value = ethers.utils.formatEther(rate);
+            $("curRateText").innerText = `1 RAYC = ${ethers.utils.formatEther(rate)} RAYC-A`;
+            
+            $("inputUserLimit").value = ethers.utils.formatEther(userLimit);
+            $("inputGlobalLimit").value = ethers.utils.formatEther(globalLimit);
+            $("inputMinSwap").value = ethers.utils.formatEther(minSwap);
+            
+            // 冷却时间转小时
+            $("inputCooldown").value = (Number(cooldown) / 3600).toString();
+
+            // 切换按钮状态
+            const btn = $("btnToggleSwap");
+            if (isSwap) {
+                btn.innerText = "关闭兑换 (当前开启)";
+                btn.className = "btn-red";
+            } else {
+                btn.innerText = "开启兑换 (当前关闭)";
+                btn.className = "btn-green";
+            }
+        } catch(e) {
+            console.error(e);
+            showStatus("刷新数据失败", "s-error");
+        }
+    }
+
+    // 统一发送交易封装
+    async function sendTx(promiseFunc) {
+        if (!signer) return alert("请先连接钱包");
+        if (globalAdminAddr.toLowerCase() !== userAddress.toLowerCase()) return alert("你不是 Owner，无权限操作！");
+        try {
+            showStatus("⏳ 正在等待钱包确认交易...", "s-warn");
+            const tx = await promiseFunc();
+            showStatus(`⏳ 交易已发送，等待上链... Hash: ${tx.hash.slice(0,10)}`, "s-warn");
+            await tx.wait();
+            showStatus("✅ 交易成功！数据已更新", "s-success");
+            await loadData(); // 刷新
+        } catch(e) {
+            console.error(e);
+            const errMsg = e.reason || e.message || "交易失败";
+            showStatus("❌ 操作失败: " + errMsg, "s-error");
+        }
+    }
+
+    // ============ 操作函数 ============
+
+    async function toggleSwap() {
+        const isSwap = await contract.swapEnabled();
+        sendTx(() => contract.setSwapEnabled(!isSwap));
+    }
+
+    function updateRate() {
+        const val = $("inputRate").value;
+        if (!val || isNaN(val) || Number(val) <= 0) return alert("请输入正确的兑换比例！");
+        sendTx(() => contract.setExchangeRate(parseNum(val)));
+    }
+
+    function updateUserLimit() {
+        const val = $("inputUserLimit").value;
+        if (!val || isNaN(val)) return alert("请输入数字！");
+        sendTx(() => contract.setUserLimit(parseNum(val)));
+    }
+
+    function updateGlobalLimit() {
+        const val = $("inputGlobalLimit").value;
+        if (!val || isNaN(val)) return alert("请输入数字！");
+        sendTx(() => contract.setGlobalLimit(parseNum(val)));
+    }
+
+    function updateCooldown() {
+        const val = $("inputCooldown").value;
+        if (val === "" || isNaN(val) || Number(val) < 0) return alert("请输入正确的小时数！");
+        const seconds = Math.floor(Number(val) * 3600);
+        sendTx(() => contract.setCooldownPeriod(seconds));
+    }
+
+    function updateMinSwap() {
+        const val = $("inputMinSwap").value;
+        if (!val || isNaN(val)) return alert("请输入数字！");
+        sendTx(() => contract.setMinSwapAmount(parseNum(val)));
+    }
+
+    function updateBlacklist() {
+        const addr = $("inputBlacklistAddr").value.trim();
+        const status = $("selectBlacklistStatus").value === "true";
+        if (!ethers.utils.isAddress(addr)) return alert("地址格式不正确");
+        sendTx(() => contract.setBlacklist(addr, status));
+    }
+
+    async function depositPool() {
+        const amt = $("inputDepositAmount").value;
+        if (!amt || Number(amt) <= 0) return alert("请输入注入数量");
+        const amtWei = parseNum(amt);
+        try {
+            const allowance = await raycAContract.allowance(userAddress, CONTRACT_ADDRESS);
+            if (allowance.lt(amtWei)) {
+                showStatus("⏳ 正在授权 RAYC-A...", "s-warn");
+                const txApp = await raycAContract.approve(CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+                await txApp.wait();
+            }
+            sendTx(() => contract.depositRaycA(amtWei));
+        } catch(e) {
+            showStatus("❌ 注入失败: " + e.message, "s-error");
+        }
+    }
+
+</script>
+</body>
+</html>
