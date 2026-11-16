@@ -1704,18 +1704,21 @@ async function refreshCustody(){
         const pRef = await contracts.custody.pendingReferralUSDT(userAddress);
         const pLvl = await contracts.custody.pendingLevelUSDT(userAddress);
 
-        // 🌟 修改：展示单位为 RAYC-A
         document.getElementById('cust-p-mining').innerText = pMineRaycA.toFixed(4) + ' RAYC-A';
         document.getElementById('cust-p-call').innerText = pCallUSDT.toFixed(4) + ' USDT';
         document.getElementById('cust-p-ref').innerText = fmt(pRef) + ' USDT';
         document.getElementById('cust-p-level').innerText = fmt(pLvl) + ' USDT';
 
-        document.getElementById('cust-c-mining').innerText = "0.00 USDT";
-        document.getElementById('cust-c-call').innerText = "0.00 USDT";
+        // 🌟 这里就是你要找的地方！改成了从链上读取真实的已领取数据
+        document.getElementById('cust-c-mining').innerText = fmt(await contracts.custody.claimedMiningUSDT(userAddress)) + ' USDT';
+        document.getElementById('cust-c-call').innerText = fmt(await contracts.custody.claimedCallUSDT(userAddress)) + ' USDT';
         document.getElementById('cust-c-ref').innerText = fmt(await contracts.custody.claimedReferralUSDT(userAddress)) + ' USDT';
         document.getElementById('cust-c-level-reward').innerText = fmt(await contracts.custody.claimedLevelUSDT(userAddress)) + ' USDT';
 
-    }catch(e){ console.error(e); log('cust-log', I18n.t('msg_failed') + e.message, true); }
+    }catch(e){ 
+        console.error(e); 
+        log('cust-log', I18n.t('msg_failed') + e.message, true); 
+    }
 }
 
 document.getElementById('cust-deposit-btn').onclick = async () => {
@@ -1743,8 +1746,13 @@ document.getElementById('cust-withdraw-btn').onclick = async () => {
 };
 
 // 🌟 修改：彻底删除前端扣 RAYT 逻辑，直接调用合约领取
+// 1. 领取挖矿收益
 document.getElementById('cust-claim-mining-btn').onclick = async () => {
     try {
+        // 防呆拦截
+        const pending = await contracts.custody.pendingMiningRayc(userAddress);
+        if(pending.isZero()) return alert("您当前没有待领取的挖矿收益");
+
         const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
         if(al.lt(ethers.constants.MaxUint256.div(2))) { 
             log('cust-log', I18n.t('msg_rayt_auth')); 
@@ -1760,9 +1768,13 @@ document.getElementById('cust-claim-mining-btn').onclick = async () => {
     }
 };
 
-// 🌟 修改：直接领取代数奖
+// 2. 领取调用收益
 document.getElementById('cust-claim-call-btn').onclick = async () => {
     try {
+        // 防呆拦截
+        const p = await contracts.custody.getCustodyPending(userAddress);
+        if(p.callUSDT.isZero()) return alert("您当前没有待领取的调用收益");
+
         const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
         if(al.lt(ethers.constants.MaxUint256.div(2))) { 
             log('cust-log', I18n.t('msg_rayt_auth')); 
@@ -1778,9 +1790,13 @@ document.getElementById('cust-claim-call-btn').onclick = async () => {
     }
 };
 
-// 🌟 修改：直接领取级别奖
+// 3. 领取代数奖励
 document.getElementById('cust-claim-ref-btn').onclick = async () => {
     try {
+        // 防呆拦截
+        const pRef = await contracts.custody.pendingReferralUSDT(userAddress);
+        if(pRef.isZero()) return alert("您当前没有待领取的代数奖励");
+
         const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
         if(al.lt(ethers.constants.MaxUint256.div(2))) { 
             log('cust-log', I18n.t('msg_rayt_auth')); 
@@ -1788,6 +1804,28 @@ document.getElementById('cust-claim-ref-btn').onclick = async () => {
         }
         log('cust-log', I18n.t('msg_processing'));
         await (await contracts.custody.claimReferral()).wait();
+        log('cust-log', I18n.t('msg_claim_success'));
+        refreshCustody();
+    } catch(e) {
+        log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true);
+        alert(I18n.t('msg_claim_failed') + (e.reason||e.message));
+    }
+};
+
+// 4. 领取级别奖励
+document.getElementById('cust-claim-level-btn').onclick = async () => {
+    try {
+        // 防呆拦截
+        const pLvl = await contracts.custody.pendingLevelUSDT(userAddress);
+        if(pLvl.isZero()) return alert("您当前没有待领取的级别奖励");
+
+        const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
+        if(al.lt(ethers.constants.MaxUint256.div(2))) { 
+            log('cust-log', I18n.t('msg_rayt_auth')); 
+            await (await contracts.rayt.approve(CONFIG.custodyContract, ethers.constants.MaxUint256)).wait(); 
+        }
+        log('cust-log', I18n.t('msg_processing'));
+        await (await contracts.custody.claimLevel()).wait();
         log('cust-log', I18n.t('msg_claim_success'));
         refreshCustody();
     } catch(e) {
