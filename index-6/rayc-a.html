@@ -28,9 +28,7 @@ html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,sans-s
 .menu-item:hover{background:rgba(79,172,254,.1);color:#4facfe}
 .menu-item .icon{font-size:18px;margin-right:12px;width:24px;text-align:center}
 
-/* 修复滑动卡顿 */
 .content-area{flex:1;position:relative;overflow-y:auto;overflow-x:hidden;padding:16px;padding-bottom:80px; -webkit-overflow-scrolling: touch;}
-
 .page-panel{display:none;flex-direction:column;gap:16px}
 .page-panel.active{display:flex}
 .bottom-nav{flex-shrink:0;display:flex;background:rgba(15,25,55,.98);backdrop-filter:blur(12px);border-top:1px solid rgba(79,172,254,.3);padding-bottom:env(safe-area-inset-bottom);z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,.4);position:fixed;bottom:0;width:100%;}
@@ -119,7 +117,6 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
 .address-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
 .address-item:last-child { border-bottom: none; }
 
-/* 👇 新增：弹窗公告样式 👇 */
 .notice-modal { align-items: center !important; padding: 20px; }
 .notice-modal .modal {
     border-radius: 20px;
@@ -139,7 +136,6 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
     padding: 20px 10px 10px; font-size: 14px; line-height: 1.6; color: #cbd5ff;
     max-height: 60vh; overflow-y: auto;
 }
-/* 👆 新增结束 👆 */
 </style>
 </head>
 <body>
@@ -193,54 +189,6 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
             <div class="balance-card"><div class="label">BNB</div><div class="value" id="home-bnb">--</div></div>
         </div>
         
-        <!-- RAYC 销毁 -->
-        <div class="card" style="display:none; justify-content:space-between; align-items:center; padding: 14px 18px; border-color: rgba(239, 68, 68, 0.4); background: linear-gradient(90deg, rgba(239, 68, 68, 0.05), rgba(0,0,0,0));">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <div style="font-size:26px; filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));">🔥</div>
-                <div>
-                    <div style="font-size:14px; font-weight:700; color:#f0f3ff;" data-i18n="burn_title">RAYC 累计销毁</div>
-                    <div style="font-size:11px; color:#ef4444; margin-top:2px;" data-i18n="burn_subtitle">通缩模型持续运转中</div>
-                </div>
-            </div>
-            <div style="text-align:right;">
-                <div style="font-size:20px; font-weight:800; color:#ef4444; font-family:monospace;" id="home-burned">0.00</div>
-                <div style="font-size:11px; color:#94a3b8;">RAYC</div>
-            </div>
-        </div>
-
-        <!-- RAYC-A 销毁 (已按你的要求隐藏，原代码逻辑完全保留) -->
-        <div class="card" style="display:none; justify-content:space-between; align-items:center; padding: 14px 18px; border-color: rgba(239, 68, 68, 0.4); background: linear-gradient(90deg, rgba(239, 68, 68, 0.05), rgba(0,0,0,0));">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <div style="font-size:26px; filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));">🔥</div>
-                <div>
-                    <div style="font-size:14px; font-weight:700; color:#f0f3ff;" data-i18n="burn_title_a">RAYC-A 累计销毁</div>
-                    <div style="font-size:11px; color:#ef4444; margin-top:2px;" data-i18n="burn_subtitle_a">通缩模型持续运转中</div>
-                </div>
-            </div>
-            <div style="text-align:right;">
-                <div style="font-size:20px; font-weight:800; color:#ef4444; font-family:monospace;" id="home-burned-a">0.00</div>
-                <div style="font-size:11px; color:#94a3b8;">RAYC-A</div>
-            </div>
-        </div>
-
-        <!-- RAYC 图表 -->
-        <div class="chart-card" style="display: none;">
-            <div class="chart-header">
-                <div class="chart-title">RAYC / USDT</div>
-                <div class="chart-stats"><span class="price" id="home-price">--</span><span id="home-change">--</span></div>
-            </div>
-            <div class="chart-timeframes" id="timeframes">
-                <button data-tf="1m" class="active" data-i18n="chart_1m">1分</button>
-                <button data-tf="5m" data-i18n="chart_5m">5分</button>
-                <button data-tf="15m" data-i18n="chart_15m">15分</button>
-                <button data-tf="1h" data-i18n="chart_1h">1时</button>
-                <button data-tf="4h" data-i18n="chart_4h">4时</button>
-                <button data-tf="1d" data-i18n="chart_1d">日线</button>
-            </div>
-            <div id="chart" class="chart"></div>
-        </div>
-
-        <!-- RAYC-A 图表 -->
         <div class="chart-card">
             <div class="chart-header">
                 <div class="chart-title">RAYC-A / USDT</div>
@@ -364,14 +312,6 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
             <div id="ws-tiers"><p style="color:#8aa9ff">加载中...</p></div>
             <div class="warning" style="font-size:13px;line-height:1.6;margin-top:10px;" data-i18n="ws_buy_warning">💡 提示：购买成功后，直推奖将<b style="color:#10b981;">实时发放</b>至您的推荐人钱包，无需手动领取。</div>
         </div>
-        <div class="card" style="display: none;">
-            <h2 data-i18n="ws_ref_title">🔗 推荐绑定</h2>
-            <div class="ref-box">
-                <div style="margin-bottom:8px" data-i18n="ws_ref_link">我的推荐链接：</div>
-                <div id="ws-link" style="color:#4facfe">--</div>
-                <button class="act" id="ws-copy-btn" data-i18n="ws_copy_link">📋 复制推荐链接</button>
-            </div>
-        </div>
         <div class="log" id="ws-log">📋 操作日志</div>
     </div>
 
@@ -485,19 +425,15 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
     <button class="nav-item" data-page="wallet"><span class="icon">💰</span><span class="name" data-i18n="nav_wallet">钱包</span></button>
 </div>
 
-<!-- 👇 系统公告弹窗 👇 -->
 <div class="modal-overlay notice-modal" id="notice-modal">
     <div class="modal">
         <button class="notice-close" onclick="closeModal('notice-modal')">❌</button>
         <div class="modal-header" style="margin-bottom:0; padding-bottom:10px; border-bottom:1px solid rgba(79,172,254,.2);">
             <div class="modal-title" data-i18n="notice_title">📢 系统公告</div>
         </div>
-        <div class="notice-content" id="notice-content">
-            <!-- 内容由 JS 动态渲染 -->
-        </div>
+        <div class="notice-content" id="notice-content"></div>
     </div>
 </div>
-<!-- 👆 结束 👆 -->
 
 <div class="modal-overlay" id="transfer-modal">
     <div class="modal">
@@ -538,7 +474,6 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
 </div>
 
 <script>
-// 防调试等保护
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 document.addEventListener('keydown', function(e) {
     if (e.key === 'F12' || e.keyCode === 123) { e.preventDefault(); return false; }
@@ -638,43 +573,27 @@ function closeMenu() {
     document.getElementById('menuDrawer').classList.remove('active');
 }
 
-// ⚡ 关键更新配置区
 const CONFIG = {
     chainId: 56,
-    
-    // 1. 全网矿机总进度条
     MARKETING_EXTRA_SOLD: 40, 
     MARKETING_EXTRA_MAX: 0,  
-    
-    // 2. 单个矿机卡片上的进度
     MACHINE_EXTRA_SOLD: { 0: 34, 1: 6 }, 
     MACHINE_EXTRA_MAX: { 0: 0, 1: 0 },
-    
-    // 3. 工作室销售进度（1对应W1，2对应W2）
     WORKSHOP_EXTRA_SOLD: { 1: 3, 2: 2 }, 
     WORKSHOP_EXTRA_MAX: { 1: 0, 2: 0 },
-    
     SHOW_TOTAL_MAX: false,
 
     miningContract:    "0x8B58dFa04cb6fA855263a6B60AA939D6e38eEcA9",
     workshopContract:  "0xff625a83ed6a527061020954E00F8c52Ee9BC1BD",
     dividendContract:  "0x06e57ef8f472736484b43a07393264d87114eb40",
-    
-    // ⚡ 替换新的托管合约
     custodyContract:   "0x30Ee259feC5656144f99F7C98a8b620467158774",
-    
     referralRegistry:  "0x2EA13E42C0e05678D50d010Ca2D390742626EA9e",
     usdtToken:         "0x55d398326f99059fF775485246999027B3197955",
     raycToken:         "0x1AAafebB2247616a8f290115df8d63Acaac47d49",
     raytToken:         "0x88201e877C4FC38D2C1c3AF20A32234629f02405",
-    
     raycUsdtPair:      "0x5a01c7D5a8357e3602a0D82b013EF821f03C551B",
-
-    // ⚡ 替换新的 RAYC-A 地址
     raycaToken:        "0x0E80f1b2C6A997197bEc630b18fbe23D0F68B620",
     raycaUsdtPair:     "0x01251cfaB3438637b66A432508AF803e706458F5", 
-
-    apiBase:           "https://www.rayc.raymondream.com/api.php",
 
     NOTICE_CONTENT: `
         <p style="color:#facc15;font-weight:bold;margin-bottom:10px;">🎉 欢迎来到 RAYC 生态中心！</p>
@@ -694,7 +613,6 @@ const ABI = {
         "function isVIP(address user) view returns (bool)", 
         "function deposit(uint256 amount) external", 
         "function withdrawCall() external",
-        // 适配新托管合约的查询方法
         "function custodies(address) view returns (uint256 totalAmount, uint256 miningPrincipal, uint256 callPrincipal, uint256 startTime, uint256 lastMiningClaimDay, uint256 miningClaimedDays, uint256 callCount, uint256 callClaimedCount, bool active)",
         "function bigArea(address) view returns (uint256)", 
         "function smallArea(address) view returns (uint256)",
@@ -707,7 +625,10 @@ const ABI = {
         "function claimedReferralUSDT(address) view returns (uint256)", 
         "function claimedLevelUSDT(address) view returns (uint256)",
         "function claimMining() external", "function claimCall() external", "function claimReferral() external", "function claimLevel() external",
-        "function teamVolume(address) view returns (uint256)"
+        "function teamVolume(address) view returns (uint256)",
+        // 👇 新增：读取特权等级 👇
+        "function overrideA(address) view returns (uint8)",
+        "function overrideC(address) view returns (uint8)"
     ],
     mining: [
         "function machineTypeCount() view returns (uint256)",
@@ -949,7 +870,6 @@ async function getRaycaPrice() {
 }
 
 async function updateCharts() {
-    // RAYC
     const price = await getRaycPrice(); 
     if(price !== null) {
         window.currentRaycPrice = price;
@@ -988,7 +908,6 @@ async function updateCharts() {
         }
     }
 
-    // RAYC-A
     const priceA = await getRaycaPrice();
     if(priceA !== null) {
         window.currentRaycaPrice = priceA;
@@ -1034,15 +953,6 @@ function startChartTimer() {
 
 async function refreshHome(){
     try{
-        const deadAddress = "0x000000000000000000000000000000000000dEaD";
-        const burnedBal = await readOnlyRaycContract.balanceOf(deadAddress);
-        const burnedEl = document.getElementById('home-burned');
-        if(burnedEl) burnedEl.innerText = parseFloat(ethers.utils.formatEther(burnedBal)).toLocaleString(undefined, {maximumFractionDigits: 2});
-
-        const burnedBalA = await readOnlyRaycaContract.balanceOf(deadAddress);
-        const burnedElA = document.getElementById('home-burned-a');
-        if(burnedElA) burnedElA.innerText = parseFloat(ethers.utils.formatEther(burnedBalA)).toLocaleString(undefined, {maximumFractionDigits: 2});
-        
         if(!userAddress) return;
         document.getElementById('home-rayc').innerText = fmt(await contracts.rayc.balanceOf(userAddress));
         document.getElementById('home-rayca').innerText = fmt(await contracts.rayca.balanceOf(userAddress));
@@ -1382,7 +1292,6 @@ async function refreshWorkshop(){
     }catch(e){ console.error(e); }
 }
 
-// ==================== 🔥 扫描团队和工作室 ====================
 window.scanTeam = async function() {
     const btn = document.getElementById('ws-scan-btn');
     const listDiv = document.getElementById('ws-address-list');
@@ -1515,7 +1424,6 @@ document.getElementById('ws-claim-meal-btn').onclick = async () => { try{ await 
 document.getElementById('ws-claim-subsidy-btn').onclick = async () => { try{ await (await contracts.workshop.claimSubsidy()).wait(); refreshWorkshop(); }catch(e){ alert(e.reason||e.message); } };
 document.getElementById('ws-copy-btn').onclick = () => { copyText(document.getElementById('ws-link').innerText, 'ws-log'); };
 
-// 前端计算级别
 const a1Threshold = ethers.utils.parseEther("100");
 const a2Threshold = ethers.utils.parseEther("500");
 const a3Threshold = ethers.utils.parseEther("1000");
@@ -1537,7 +1445,6 @@ function calcCLevel(bigWei, smallWei) {
 
 async function refreshCustody(){
     try{
-        // ⚡ 适配新托管合约查询
         const base = await contracts.custody.custodies(userAddress);
         document.getElementById('cust-status').innerText = base.active ? I18n.t('cust_active') : I18n.t('cust_inactive');
         document.getElementById('cust-status').style.color = base.active ? '#10b981' : '#ef4444';
@@ -1559,10 +1466,22 @@ async function refreshCustody(){
         document.getElementById('cust-big-area').innerText = fmt(big) + ' USDT';
         document.getElementById('cust-small-area').innerText = fmt(small) + ' USDT';
         
-        const aLvl = calcALevel(pv);
-        const cLvl = calcCLevel(big, small);
+        // 👇 核心修复：优先读取特权等级 overrideA 和 overrideC 👇
+        let aLvl = 0;
+        let cLvl = 0;
+        try {
+            const ovA = await contracts.custody.overrideA(userAddress);
+            aLvl = Number(ovA) > 0 ? Number(ovA) : calcALevel(pv);
+        } catch(e) { aLvl = calcALevel(pv); }
+
+        try {
+            const ovC = await contracts.custody.overrideC(userAddress);
+            cLvl = Number(ovC) > 0 ? Number(ovC) : calcCLevel(big, small);
+        } catch(e) { cLvl = calcCLevel(big, small); }
+
         document.getElementById('cust-a-level').innerText = `A${aLvl}`;
         document.getElementById('cust-c-level').innerText = `C${cLvl}`;
+        // 👆 修复结束 👆
 
         const raycAPriceWei = await contracts.custody.raycAPrice();
         const raycAPrice = parseFloat(ethers.utils.formatEther(raycAPriceWei));
@@ -1602,10 +1521,8 @@ async function refreshCustody(){
         document.getElementById('cust-p-ref').innerText = fmt(pRef) + ' USDT';
         document.getElementById('cust-p-level').innerText = fmt(pLvl) + ' USDT';
 
-        // ⚡ 修复报错：去除新合约里不存在的 claimedMiningUSDT 和 claimedCallUSDT 方法
         document.getElementById('cust-c-mining').innerText = "0.00 USDT";
         document.getElementById('cust-c-call').innerText = "0.00 USDT";
-        // 这两个新合约里有，可以保留
         document.getElementById('cust-c-ref').innerText = fmt(await contracts.custody.claimedReferralUSDT(userAddress)) + ' USDT';
         document.getElementById('cust-c-level-reward').innerText = fmt(await contracts.custody.claimedLevelUSDT(userAddress)) + ' USDT';
 
@@ -1658,7 +1575,6 @@ document.getElementById('cust-claim-call-btn').onclick = async () => {
     } catch(e) { log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true); alert(I18n.t('msg_claim_failed') + (e.reason||e.message)); }
 };
 
-// ⚡ 修复：直接调用新合约的方法，新合约链上自带扣 10% RAYT 的逻辑，前端不需要再转账一次了
 async function claimWithRaytTax(claimType) {
     try {
         let amtBN = ethers.constants.Zero;
@@ -1672,7 +1588,6 @@ async function claimWithRaytTax(claimType) {
             return alert(I18n.currentLang === 'zh-CN' ? "您当前没有待领取的奖励" : "No pending reward");
         }
 
-        // 链上已经包揽了扣税和转账（如果RAYC-A不在白名单里会自动扣，我们已经在合约里处理了）
         if (claimType === 'referral') {
             await (await contracts.custody.claimReferral()).wait();
         } else {
@@ -1695,7 +1610,7 @@ document.getElementById('cust-claim-level-btn').onclick = () => { claimWithRaytT
 async function refreshWallet(){
     try{
         const rb = await contracts.rayc.balanceOf(userAddress);
-        const ra = await contracts.rayca.balanceOf(userAddress); // ⚡ 替换新代币
+        const ra = await contracts.rayca.balanceOf(userAddress);
         const tb = await contracts.rayt.balanceOf(userAddress);
         const ub = await contracts.usdt.balanceOf(userAddress);
         const bb = await provider.getBalance(userAddress);
@@ -1737,7 +1652,7 @@ async function refreshWallet(){
             <div class="token-row"><div class="token-left"><div class="token-icon" style="background:rgba(16,185,129,0.2)">💵</div><div><div class="token-name">USDT</div><div class="token-sub">Tether USD</div></div></div><div class="token-right"><div class="token-amount">${fmt(ub)}</div><div class="token-value">≈ $${usdtValue.toFixed(2)}</div></div></div>
             <div class="token-row"><div class="token-left"><div class="token-icon" style="background:rgba(243,186,47,0.2)">🟡</div><div><div class="token-name">BNB</div><div class="token-sub">Binance Coin</div></div></div><div class="token-right"><div class="token-amount">${fmt(bb)}</div><div class="token-value">≈ $${bnbValue.toFixed(2)}</div></div></div>`;
 
-        const totalValue = usdtValue + raycValue + raycaValue + raytValue + bnbValue;
+        const totalValue = usdtValue + raycValue + raytValue + bnbValue;
         document.getElementById('wallet-total-value').innerText = '$' + totalValue.toFixed(2);
 
     }catch(e){ console.error(e); }
