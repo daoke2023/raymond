@@ -535,7 +535,7 @@ const i18nData = {
     },
     'en': {
         'title': '⚡ RAYC Ecosystem', 'unconnected': 'Disconnected', 'connect_wallet': 'Connect Wallet', 'connected': '✅ Connected',
-        'menu_title': '📋 Menu', 'menu_flash_swap': 'Order', 'menu_chat': 'Chat', 'menu_farm': 'Farm', 'menu_game': 'Game', 'menu_news': 'Swap', 'menu_notice': 'Mall', 'menu_activity': 'Dividend', 'menu_community': 'Yu'ebao', 'menu_about': 'About',
+        'menu_title': '📋 Menu', 'menu_flash_swap': 'Order', 'menu_chat': 'Chat', 'menu_farm': 'Farm', 'menu_game': 'Game', 'menu_news': 'Swap', 'menu_notice': 'Mall', 'menu_activity': 'Dividend', 'menu_community': 'Yu\'ebao', 'menu_about': 'About',
         'nav_home': 'Home', 'nav_mining': 'Mining', 'nav_workshop': 'Workshop', 'nav_custody': 'Custody', 'nav_wallet': 'Wallet',
         'cust_title': '💼 My Custody Panel', 'cust_status': 'Status', 'cust_active': '✅ Active', 'cust_inactive': 'Inactive', 'cust_claim_mining': 'Claim Mining (RAYC-A)', 'cust_p_mining': 'Pending Mining (RAYC-A)',
         'active': '✅ Active', 'inactive': 'Inactive', 'people': 'pax'
@@ -662,7 +662,9 @@ const ABI = {
         "function miningDailyBps() view returns (uint256)",
         "function claimedReferralUSDT(address) view returns (uint256)", 
         "function claimedLevelUSDT(address) view returns (uint256)",
-        "function claimMining() external", "function claimCall() external", "function claimReferral() external", "function claimLevel() external"
+        "function claimMining() external", "function claimCall() external", "function claimReferral() external", "function claimLevel() external",
+        "function overrideA(address) view returns (uint8)",
+        "function overrideC(address) view returns (uint8)"
     ],
     mining: [
         "function machineTypeCount() view returns (uint256)",
@@ -1493,11 +1495,22 @@ async function refreshCustody(){
         document.getElementById('cust-big-area').innerText = fmt(big) + ' USDT';
         document.getElementById('cust-small-area').innerText = fmt(small) + ' USDT';
         
-        // 新合约没有 teamCount 方法，这里用直推模拟，或留空
+        // 最新合约没有直接返回 teamCount，这里用直推模拟，或留空
         document.getElementById('cust-team-count').innerText = '--';
 
-        const aLvl = calcALevel(pv);
-        const cLvl = calcCLevel(big, small);
+        // 优先读取 override，如果没有则动态计算
+        let aLvl = 0;
+        let cLvl = 0;
+        try {
+            const ovA = await contracts.custody.overrideA(userAddress);
+            aLvl = Number(ovA) > 0 ? Number(ovA) : calcALevel(pv);
+        } catch(e) { aLvl = calcALevel(pv); }
+
+        try {
+            const ovC = await contracts.custody.overrideC(userAddress);
+            cLvl = Number(ovC) > 0 ? Number(ovC) : calcCLevel(big, small);
+        } catch(e) { cLvl = calcCLevel(big, small); }
+
         document.getElementById('cust-a-level').innerText = `A${aLvl}`;
         document.getElementById('cust-c-level').innerText = `C${cLvl}`;
 
@@ -1596,7 +1609,7 @@ document.getElementById('cust-claim-call-btn').onclick = async () => {
     } catch(e) { log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true); alert(I18n.t('msg_claim_failed') + (e.reason||e.message)); }
 };
 
-// ✅ 合约内部已处理扣 RAYT，直接调用即可
+// ✅ 新合约内部已处理扣 RAYT，直接调用即可
 document.getElementById('cust-claim-ref-btn').onclick = async () => {
     try {
         log('cust-log', I18n.t('msg_processing'));
