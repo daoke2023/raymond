@@ -635,9 +635,7 @@ const ABI = {
         "function getCustodyPending(address) view returns (uint256 callUSDT, uint256 referralUSDT, uint256 levelUSDT)",
         "function getALevel(address) view returns (uint256)",
         "function getUserLevel(address) view returns (uint256)",
-        "function claimMining() external", "function claimCall() external", "function claimReferral() external", "function claimLevel() external",
-        "function overrideA(address) view returns (uint8)",
-        "function overrideC(address) view returns (uint8)"
+        "function claimMining() external", "function claimCall() external", "function claimReferral() external", "function claimLevel() external"
     ],
     mining: [
         "function machineTypeCount() view returns (uint256)",
@@ -1481,6 +1479,7 @@ async function refreshCustody(){
             document.getElementById('cust-team-count').innerText = teamCount.toString() + ' ' + I18n.t('people');
         }
 
+        // 使用新合约接口直接获取等级，不再使用前端 calcALevel 等废弃逻辑
         const aLvl = await contracts.custody.getALevel(userAddress);
         const cLvl = await contracts.custody.getUserLevel(userAddress);
         document.getElementById('cust-a-level').innerText = `A${aLvl}`;
@@ -1551,7 +1550,7 @@ document.getElementById('cust-claim-call-btn').onclick = async () => {
     } catch(e) { log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true); alert(I18n.t('msg_claim_failed') + (e.reason||e.message)); }
 };
 
-// ✅ 新托管合约内部已内置扣 RAYT 逻辑，前端直接调用合约即可（移除原 claimWithRaytTax 前端收税）
+// ✅ 新托管合约内部已内置扣 RAYT 逻辑，前端直接调用合约即可
 document.getElementById('cust-claim-ref-btn').onclick = async () => {
     try {
         log('cust-log', I18n.t('msg_processing'));
