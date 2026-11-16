@@ -189,6 +189,54 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
             <div class="balance-card"><div class="label">BNB</div><div class="value" id="home-bnb">--</div></div>
         </div>
         
+        <!-- RAYC 销毁 -->
+        <div class="card" style="display:none; justify-content:space-between; align-items:center; padding: 14px 18px; border-color: rgba(239, 68, 68, 0.4); background: linear-gradient(90deg, rgba(239, 68, 68, 0.05), rgba(0,0,0,0));">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="font-size:26px; filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));">🔥</div>
+                <div>
+                    <div style="font-size:14px; font-weight:700; color:#f0f3ff;" data-i18n="burn_title">RAYC 累计销毁</div>
+                    <div style="font-size:11px; color:#ef4444; margin-top:2px;" data-i18n="burn_subtitle">通缩模型持续运转中</div>
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:20px; font-weight:800; color:#ef4444; font-family:monospace;" id="home-burned">0.00</div>
+                <div style="font-size:11px; color:#94a3b8;">RAYC</div>
+            </div>
+        </div>
+
+        <!-- RAYC-A 销毁 (已按你的要求隐藏，原代码逻辑完全保留) -->
+        <div class="card" style="display:none; justify-content:space-between; align-items:center; padding: 14px 18px; border-color: rgba(239, 68, 68, 0.4); background: linear-gradient(90deg, rgba(239, 68, 68, 0.05), rgba(0,0,0,0));">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="font-size:26px; filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));">🔥</div>
+                <div>
+                    <div style="font-size:14px; font-weight:700; color:#f0f3ff;" data-i18n="burn_title_a">RAYC-A 累计销毁</div>
+                    <div style="font-size:11px; color:#ef4444; margin-top:2px;" data-i18n="burn_subtitle_a">通缩模型持续运转中</div>
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:20px; font-weight:800; color:#ef4444; font-family:monospace;" id="home-burned-a">0.00</div>
+                <div style="font-size:11px; color:#94a3b8;">RAYC-A</div>
+            </div>
+        </div>
+
+        <!-- RAYC 图表 -->
+        <div class="chart-card" style="display: none;">
+            <div class="chart-header">
+                <div class="chart-title">RAYC / USDT</div>
+                <div class="chart-stats"><span class="price" id="home-price">--</span><span id="home-change">--</span></div>
+            </div>
+            <div class="chart-timeframes" id="timeframes">
+                <button data-tf="1m" class="active" data-i18n="chart_1m">1分</button>
+                <button data-tf="5m" data-i18n="chart_5m">5分</button>
+                <button data-tf="15m" data-i18n="chart_15m">15分</button>
+                <button data-tf="1h" data-i18n="chart_1h">1时</button>
+                <button data-tf="4h" data-i18n="chart_4h">4时</button>
+                <button data-tf="1d" data-i18n="chart_1d">日线</button>
+            </div>
+            <div id="chart" class="chart"></div>
+        </div>
+
+        <!-- RAYC-A 图表 -->
         <div class="chart-card">
             <div class="chart-header">
                 <div class="chart-title">RAYC-A / USDT</div>
@@ -312,6 +360,14 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
             <div id="ws-tiers"><p style="color:#8aa9ff">加载中...</p></div>
             <div class="warning" style="font-size:13px;line-height:1.6;margin-top:10px;" data-i18n="ws_buy_warning">💡 提示：购买成功后，直推奖将<b style="color:#10b981;">实时发放</b>至您的推荐人钱包，无需手动领取。</div>
         </div>
+                <div class="card" style="display: none;">
+            <h2 data-i18n="ws_ref_title">🔗 推荐绑定</h2>
+            <div class="ref-box">
+                <div style="margin-bottom:8px" data-i18n="ws_ref_link">我的推荐链接：</div>
+                <div id="ws-link" style="color:#4facfe">--</div>
+                <button class="act" id="ws-copy-btn" data-i18n="ws_copy_link">📋 复制推荐链接</button>
+            </div>
+        </div>
         <div class="log" id="ws-log">📋 操作日志</div>
     </div>
 
@@ -425,15 +481,19 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
     <button class="nav-item" data-page="wallet"><span class="icon">💰</span><span class="name" data-i18n="nav_wallet">钱包</span></button>
 </div>
 
+<!-- 👇 系统公告弹窗 👇 -->
 <div class="modal-overlay notice-modal" id="notice-modal">
     <div class="modal">
         <button class="notice-close" onclick="closeModal('notice-modal')">❌</button>
         <div class="modal-header" style="margin-bottom:0; padding-bottom:10px; border-bottom:1px solid rgba(79,172,254,.2);">
             <div class="modal-title" data-i18n="notice_title">📢 系统公告</div>
         </div>
-        <div class="notice-content" id="notice-content"></div>
+        <div class="notice-content" id="notice-content">
+            <!-- 内容由 JS 动态渲染 -->
+        </div>
     </div>
 </div>
+<!-- 👆 结束 👆 -->
 
 <div class="modal-overlay" id="transfer-modal">
     <div class="modal">
@@ -519,7 +579,6 @@ const i18nData = {
         'wallet_addr': '我的钱包地址', 'wallet_copy': '📋 复制地址', 'wallet_transfer': '转账', 'wallet_receive': '收款', 'wallet_go_mining': '去挖矿',
         'wallet_token_title': '💰 代币余额', 'wallet_connect_hint': '连接钱包后显示', 'wallet_asset_title': '📊 资产统计', 'wallet_total_value': '总资产估值', 'wallet_based_price': '基于当前价格', 'wallet_rayc_price': 'RAYC-A 单价', 'wallet_realtime': 'PancakeSwap 实时',
         'modal_transfer': '📤 转账', 'modal_select_token': '选择代币', 'modal_receive_addr': '接收地址', 'modal_amount': '转账数量', 'modal_confirm': '确认转账', 'modal_receive': '📥 收款', 'modal_copy_addr': '📋 复制地址',
-        'modal_available': '可用: ',
         'msg_install_wallet': '请安装 MetaMask 或使用 TP/OKX Wallet', 'msg_switch_net': '请手动切换到 BSC 主网', 'msg_connected': '✅ 钱包已连接', 'msg_wrong_addr': '无效的地址', 'msg_input_amt': '输入有效数量', 'msg_confirm_transfer': '确认转账', 'msg_processing': '⏳ 转账中...', 'msg_success': '✅ 转账成功', 'msg_failed': '❌ 转账失败: ',
         'msg_approving': '授权中...', 'msg_buying': '购买中...', 'msg_buy_success': '✅ 购买成功', 'msg_claim_success': '✅ 领取成功', 'msg_copied': '✅ 已复制', 'msg_claim_failed': '领取失败: ', 'msg_custody_warning': '首次托管必须 ≥ 100 USDT', 'msg_withdraw_warning': '⚠️ 警告：提取调用本金将销毁您的 50% 挖矿本金，且所有未领收益作废！确定吗？',
         'msg_rayt_auth': '授权RAYT中...', 'msg_claiming_mining': '领取挖矿收益中...', 'msg_claiming_call': '领取调用收益中...', 'msg_tax_insufficient': '领取失败(检查RAYT是否足够): ',
@@ -528,24 +587,132 @@ const i18nData = {
     },
     'zh-TW': {
         'title': '⚡ RAYC 生態', 'unconnected': '連接', 'connect_wallet': '連接錢包', 'connected': '✅ 已連接',
-        'menu_title': '📋 功能菜單', 'menu_flash_swap': '掛單', 'menu_chat': '聊天', 'menu_farm': '新增業績獎', 'menu_game': '遊戲', 'menu_news': 'Swap閃兌', 'menu_notice': '商城', 'menu_activity': '運營中心分紅', 'menu_community': '餘額寶', 'menu_about': '關於Raymond',
+        'menu_title': '📋 功能菜單', 'menu_flash_swap': '掛單', 'menu_chat': '聊天', 'menu_farm': '新增業績將', 'menu_game': '遊戲', 'menu_news': 'Swap閃兌', 'menu_notice': '商城', 'menu_activity': '营銷獎勵', 'menu_community': '餘額寶', 'menu_about': '關於Raymond',
         'nav_home': '首頁', 'nav_mining': '挖礦', 'nav_workshop': '工作室', 'nav_custody': '託管', 'nav_wallet': '錢包',
-        'cust_title': '💼 我的託管面板', 'cust_status': '託管狀態', 'cust_active': '✅ 託管中', 'cust_inactive': '未託管', 'cust_claim_mining': '領取挖礦收益 (發放 RAYC-A)', 'cust_p_mining': '待領挖礦收益 (RAYC-A)',
-        'active': '✅ 已激活', 'inactive': '未激活', 'people': '人'
+        'burn_title': 'RAYC 累計銷毀', 'burn_subtitle': '通縮模型持續運轉中',
+        'burn_title_a': 'RAYC-A 累計銷毀', 'burn_subtitle_a': '通縮模型持續運轉中',
+        'notice_title': '📢 系統公告',
+        'mining_title': '💎 挖礦基礎信息', 'mining_vip_status': 'VIP 狀態', 'mining_referrer': '我的推薦人', 'mining_daily_output': '每日產出',
+        'mining_progress_title': '📈 全網礦機銷售進度', 'mining_sold_total': '已售 / 總量',
+        'mining_my_machine': '⛏️ 我的礦機', 'mining_no_machine': '暫未購買礦機', 'mining_start_time': '開始時間', 'mining_mined_days': '已挖天數', 'mining_total_claimed': '累計已領 RAYT', 'mining_today_pending': '今日待領取產出', 'mining_claim_btn': '💰 領取今日產出', 'mining_warning': '⚠️ 每天需手動領取，不領不累計！',
+        'mining_buy_title': '🛒 領取礦機', 'mining_airdrop': '🎁 附贈空投：見各礦機詳情', 'mining_ref_placeholder': '推薦人地址（自動識別）', 'mining_buy_btn': '🚀 支付領取礦機', 'mining_buy_warning': '⚠️ 購買後自動綁定上級，每日需手動領取產出，不領不累計。',
+        'mining_reward_title': '🎁 我的傘下獎勵', 'mining_pending_rayt': '待領產量獎勵 (RAYT)', 'mining_pending_usdt': '待領礦機費 (USDT)', 'mining_claim_rayt': '領取 RAYT', 'mining_claim_usdt': '領取 USDT',
+        'mining_total_rayt': '累計已領 RAYT', 'mining_total_usdt': '累計已領 USDT', 'mining_team_count': '直推總人數', 'mining_link': '我的推薦鏈接：', 'mining_copy': '📋 複製推薦鏈接', 'mining_reward_warning': '⚠️ 只有成為 VIP（託管≥100U）才能累積並獲得傘下獎勵！',
+        'active': '✅ 已激活', 'inactive': '未激活', 'no_referrer': '無推薦人', 'people': '人',
+        'ws_title': '👑 我的工作室', 'ws_usdt': 'USDT 餘額', 'ws_level': '我的級別', 'ws_not_bought': '未購買', 'ws_meal_progress': '餐補進度',
+        'ws_div_title': '💰 我的分紅', 'ws_pending_div': '待領取分紅（USDT）', 'ws_claimed_total': '已領取總額', 'ws_claim_div': '💰 領取分紅', 'ws_pool': '本輪分紅池',
+        'ws_meal_subsidy_title': '💰 餐補與補貼', 'ws_pending_meal': '待領取餐補', 'ws_claim_meal': '💰 領取餐補', 'ws_pending_subsidy': '待領取補貼', 'ws_claim_subsidy': '💰 領取補貼',
+        'ws_buy_title': '🛒 購買工作室', 'ws_sold': '已售', 'ws_weight': '分紅權重', 'ws_direct_reward': '直推獎', 'ws_subsidy_pool': '補貼池', 'ws_closed': '關閉', 'ws_buy_now': '🚀 立即購買', 'ws_owned': '✅ 已擁有', 'ws_unpublished': '暫未發布', 'ws_buy_warning': '💡 提示：購買成功後，直推獎將<b style="color:#10b981;">實時發放</b>至您的推薦人錢包，無需手動領取。',
+        'ws_ref_title': '🔗 推薦綁定', 'ws_ref_link': '我的推薦鏈接：', 'ws_copy_link': '📋 複製推薦鏈接',
+        'team_info_title': '🤝 我的團隊信息', 'direct_count': '直推人數', 
+        'team_count_custody': '傘下總人數 (託管統計)', 'team_count_real': '傘下總人數 (真實)',
+        'team_workshop_count': '傘下工作室人數 (點擊下方掃描)', 
+        'btn_scan_team': '📥 獲取詳細地址和統計工作室', 'btn_scanning_team': '⏳ 掃描鏈上記錄中(約需10-30秒)...', 'btn_rescan_team': '🔄 重新掃描與統計',
+        'msg_scanning': '正在掃描鏈上礦機和工作室購買記錄，請稍候...', 'msg_no_direct': '未找到最近區塊內的直推購買記錄',
+        'msg_scan_fail': '掃描失敗: ', 'copy_text': '複製',
+        'cust_title': '💼 我的託管面板', 'cust_status': '託管狀態', 'cust_start_time': '託管開始時間', 'cust_active': '✅ 託管中', 'cust_inactive': '未託管', 'cust_total': '總託管額度', 'cust_mining_p': '50% 挖礦本金', 'cust_call_p': '50% 調用本金', 'cust_big_area': '大區業績', 'cust_small_area': '小區業績', 'cust_team': '傘下團隊人數', 'cust_a_level': '代數獎等級 (A)', 'cust_c_level': '級別獎等級 (C)', 'cust_refresh': '🔄 刷新託管數據', 'cust_big_small_stat': '📊 大小區業績',
+        'cust_income_title': '📊 收益明細 (手動領取)', 
+        'cust_p_mining': '待領挖礦收益 (RAYC-A)', 
+        'cust_c_mining': '已領挖礦收益 (U估值)', 
+        'cust_claim_mining': '領取挖礦收益 (發放 RAYC-A)', 
+        'cust_p_call': '待領調用收益', 'cust_c_call': '已領調用收益', 'cust_claim_call': '領取調用收益 (發放 USDT)', 
+        'cust_p_ref': '待領代數獎勵', 'cust_c_ref': '已領代數獎勵', 'cust_claim_ref': '領取代數獎勵', 'cust_p_level': '待領級別獎勵', 'cust_c_level_reward': '已領級別獎勵', 'cust_claim_level': '領取級別獎勵',
+        'cust_op_title': '🚀 託管操作', 'cust_op_warning': '首次需≥100U，追加託管挖礦時間不重置。', 'cust_deposit_placeholder': '輸入託管 USDT 數量', 'cust_deposit_btn': '💰 確認託管 / 追加', 'cust_withdraw_warning': '⚠️ 提取調用本金將銷毀50%挖礦本金，未領收益作廢！', 'cust_withdraw_btn': '💸 提取調用本金',
+        'bind_ref_title': '🔗 綁定推薦人確認', 'bind_ref_msg': '檢測到您首次購買，將為您綁定推薦人：', 'bind_ref_warning': '⚠️ 綁定後不可更改，請確認地址無誤。', 'bind_ref_close': '關閉', 'bind_ref_confirm': '確定並支付',
+        'wallet_addr': '我的錢包地址', 'wallet_copy': '📋 複製地址', 'wallet_transfer': '轉賬', 'wallet_receive': '收款', 'wallet_go_mining': '去挖礦',
+        'wallet_token_title': '💰 代幣餘額', 'wallet_connect_hint': '連接錢包後顯示', 'wallet_asset_title': '📊 資產統計', 'wallet_total_value': '總資產估值', 'wallet_based_price': '基於當前價格', 'wallet_rayc_price': 'RAYC-A 單價', 'wallet_realtime': 'PancakeSwap 實時',
+        'modal_transfer': '📤 轉賬', 'modal_select_token': '選擇代幣', 'modal_receive_addr': '接收地址', 'modal_amount': '轉賬數量', 'modal_confirm': '確認轉賬', 'modal_receive': '📥 收款', 'modal_copy_addr': '📋 複製地址',
+        'msg_install_wallet': '請安裝 MetaMask 或使用 TP/OKX Wallet', 'msg_switch_net': '請手動切換到 BSC 主網', 'msg_connected': '✅ 錢包已連接', 'msg_wrong_addr': '無效的地址', 'msg_input_amt': '輸入有效數量', 'msg_confirm_transfer': '確認轉賬', 'msg_processing': '⏳ 轉賬中...', 'msg_success': '✅ 轉賬成功', 'msg_failed': '❌ 轉賬失敗: ',
+        'msg_approving': '授權中...', 'msg_buying': '購買中...', 'msg_buy_success': '✅ 購買成功', 'msg_claim_success': '✅ 領取成功', 'msg_copied': '✅ 已複製', 'msg_claim_failed': '領取失敗: ', 'msg_custody_warning': '首次託管必須 ≥ 100 USDT', 'msg_withdraw_warning': '⚠️ 警告：提取調用本金將銷毀您的 50% 挖礦本金，且所有未領收益作廢！確定嗎？',
+        'msg_rayt_auth': '授權RAYT中...', 'msg_claiming_mining': '領取挖礦收益中...', 'msg_claiming_call': '領取調用收益中...', 'msg_tax_insufficient': '領取失敗(檢查RAYT是否足夠): ',
+        'chart_1m': '1分', 'chart_5m': '5分', 'chart_15m': '15分', 'chart_1h': '1時', 'chart_4h': '4時', 'chart_1d': '日線',
+        'mining_machine': '礦機', 'mining_red_warning': '⚠️ 每天需手動領取，不領不累計！', 'mining_airdrop_label': '附贈空投', 'mining_pay_btn': '支付', 'mining_sold_out': '所有礦機已售罄或已購買', 'mining_claiming': '領取中...'
     },
     'en': {
-        'title': '⚡ RAYC Ecosystem', 'unconnected': 'Disconnected', 'connect_wallet': 'Connect Wallet', 'connected': '✅ Connected',
-        'menu_title': '📋 Menu', 'menu_flash_swap': 'Order', 'menu_chat': 'Chat', 'menu_farm': 'Farm', 'menu_game': 'Game', 'menu_news': 'Swap', 'menu_notice': 'Mall', 'menu_activity': 'Dividend', 'menu_community': 'Yu\'ebao', 'menu_about': 'About',
+        'title': '⚡ RAYC Eco', 'unconnected': 'Disconnected', 'connect_wallet': 'Connect Wallet', 'connected': '✅ Connected',
+        'menu_title': '📋 Menu', 'menu_flash_swap': 'Swap', 'menu_chat': 'Chat', 'menu_farm': 'Farm', 'menu_game': 'Game', 'menu_news': 'Swap', 'menu_notice': 'Notice', 'menu_activity': 'Activity', 'menu_community': 'Yuebao', 'menu_about': 'About Raymond',
         'nav_home': 'Home', 'nav_mining': 'Mining', 'nav_workshop': 'Workshop', 'nav_custody': 'Custody', 'nav_wallet': 'Wallet',
-        'cust_title': '💼 My Custody Panel', 'cust_status': 'Status', 'cust_active': '✅ Active', 'cust_inactive': 'Inactive', 'cust_claim_mining': 'Claim Mining (RAYC-A)', 'cust_p_mining': 'Pending Mining (RAYC-A)',
-        'active': '✅ Active', 'inactive': 'Inactive', 'people': 'pax'
+        'burn_title': 'Total RAYC Burned', 'burn_subtitle': 'Deflationary mechanism running',
+        'burn_title_a': 'Total RAYC-A Burned', 'burn_subtitle_a': 'Deflationary mechanism running',
+        'notice_title': '📢 System Notice',
+        'mining_title': '💎 Mining Info', 'mining_vip_status': 'VIP Status', 'mining_referrer': 'My Referrer', 'mining_daily_output': 'Daily Output',
+        'mining_progress_title': '📈 Sales Progress', 'mining_sold_total': 'Sold / Total',
+        'mining_my_machine': '⛏️ My Machine', 'mining_no_machine': 'No machine purchased', 'mining_start_time': 'Start Time', 'mining_mined_days': 'Mined Days', 'mining_total_claimed': 'Total Claimed RAYT', 'mining_today_pending': 'Pending Today', 'mining_claim_btn': '💰 Claim Today Output', 'mining_warning': '⚠️ Must claim daily, unclaimed rewards will not accumulate!',
+        'mining_buy_title': '🛒 Get Machine', 'mining_airdrop': '🎁 Airdrop: See details', 'mining_ref_placeholder': 'Referrer Address (Auto)', 'mining_buy_btn': '🚀 Pay to get Machine', 'mining_buy_warning': '⚠️ Auto-bind referrer, manual daily claim required.',
+        'mining_reward_title': '🎁 My Referral Rewards', 'mining_pending_rayt': 'Pending RAYT', 'mining_pending_usdt': 'Pending USDT', 'mining_claim_rayt': 'Claim RAYT', 'mining_claim_usdt': 'Claim USDT',
+        'mining_total_rayt': 'Total Claimed RAYT', 'mining_total_usdt': 'Total Claimed USDT', 'mining_team_count': 'Total Team', 'mining_link': 'Invite Link:', 'mining_copy': '📋 Copy Link', 'mining_reward_warning': '⚠️ Only VIP (Custody≥100U) can accumulate rewards!',
+        'active': '✅ Active', 'inactive': 'Inactive', 'no_referrer': 'No Referrer', 'people': 'People',
+        'ws_title': '👑 My Workshop', 'ws_usdt': 'USDT Balance', 'ws_level': 'My Level', 'ws_not_bought': 'Not Purchased', 'ws_meal_progress': 'Meal Progress',
+        'ws_div_title': '💰 My Dividend', 'ws_pending_div': 'Pending Dividend (USDT)', 'ws_claimed_total': 'Claimed Total', 'ws_claim_div': '💰 Claim Dividend', 'ws_pool': 'Dividend Pool',
+        'ws_meal_subsidy_title': '💰 Meal & Subsidy', 'ws_pending_meal': 'Pending Meal', 'ws_claim_meal': '💰 Claim Meal', 'ws_pending_subsidy': 'Pending Subsidy', 'ws_claim_subsidy': '💰 Claim Subsidy',
+        'ws_buy_title': '🛒 Buy Workshop', 'ws_sold': 'Sold', 'ws_weight': 'Weight', 'ws_direct_reward': 'Direct Reward', 'ws_subsidy_pool': 'Subsidy Pool', 'ws_closed': 'Closed', 'ws_buy_now': '🚀 Buy Now', 'ws_owned': '✅ Owned', 'ws_unpublished': 'Unpublished', 'ws_buy_warning': '💡 Note: Direct reward will be sent <b style="color:#10b981;">instantly</b> to referrer.',
+        'ws_ref_title': '🔗 Referral Link', 'ws_ref_link': 'Invite Link:', 'ws_copy_link': '📋 Copy Link',
+        'team_info_title': '🤝 My Team Info', 'direct_count': 'Direct Referrals', 
+        'team_count_custody': 'Total Team (Custody)', 'team_count_real': 'Total Team (Real)',
+        'team_workshop_count': 'Sub-team Workshops (Scan)', 
+        'btn_scan_team': '📥 Get Details & Count Workshops', 'btn_scanning_team': '⏳ Scanning on-chain...', 'btn_rescan_team': '🔄 Rescan & Count',
+        'msg_scanning': 'Scanning on-chain purchases, please wait...', 'msg_no_direct': 'No direct referral records found recently',
+        'msg_scan_fail': 'Scan failed: ', 'copy_text': 'Copy',
+        'cust_title': '💼 Custody Panel', 'cust_status': 'Status', 'cust_start_time': 'Custody Start Time', 'cust_active': '✅ Active', 'cust_inactive': 'Inactive', 'cust_total': 'Total Custody', 'cust_mining_p': '50% Mining', 'cust_call_p': '50% Call', 'cust_big_area': 'Big Area Vol', 'cust_small_area': 'Small Area Vol', 'cust_team': 'Team Size', 'cust_a_level': 'A Level', 'cust_c_level': 'C Level', 'cust_refresh': '🔄 Refresh Data', 'cust_big_small_stat': '📊 Big/Small Area Stats',
+        'cust_income_title': '📊 Income Details (Manual Claim)', 
+        'cust_p_mining': 'Pending Mining (RAYC-A)', 
+        'cust_c_mining': 'Claimed Mining (U Value)', 
+        'cust_claim_mining': 'Claim Mining (Get RAYC-A)', 
+        'cust_p_call': 'Pending Call', 'cust_c_call': 'Claimed Call', 'cust_claim_call': 'Claim Call (Get USDT)', 
+        'cust_p_ref': 'Pending Referral', 'cust_c_ref': 'Claimed Referral', 'cust_claim_ref': 'Claim Referral', 'cust_p_level': 'Pending Level', 'cust_c_level_reward': 'Claimed Level', 'cust_claim_level': 'Claim Level',
+        'cust_op_title': '🚀 Custody Action', 'cust_op_warning': 'First time ≥100U, additional deposit will not reset time.', 'cust_deposit_placeholder': 'Enter USDT amount', 'cust_deposit_btn': '💰 Confirm / Add Deposit', 'cust_withdraw_warning': '⚠️ Withdrawing call principal will destroy 50% mining principal!', 'cust_withdraw_btn': '💸 Withdraw Call Principal',
+        'bind_ref_title': '🔗 Confirm Referrer', 'bind_ref_msg': 'First purchase detected. Binding to:', 'bind_ref_warning': '⚠️ Cannot be changed after binding.', 'bind_ref_close': 'Close', 'bind_ref_confirm': 'Confirm & Pay',
+        'wallet_addr': 'My Wallet Address', 'wallet_copy': '📋 Copy Address', 'wallet_transfer': 'Transfer', 'wallet_receive': 'Receive', 'wallet_go_mining': 'Go Mining',
+        'wallet_token_title': '💰 Token Balance', 'wallet_connect_hint': 'Connect wallet to view', 'wallet_asset_title': '📊 Asset Stats', 'wallet_total_value': 'Total Value', 'wallet_based_price': 'Based on current price', 'wallet_rayc_price': 'RAYC-A Price', 'wallet_realtime': 'PancakeSwap Real-time',
+        'modal_transfer': '📤 Transfer', 'modal_select_token': 'Select Token', 'modal_receive_addr': 'Receive Address', 'modal_amount': 'Amount', 'modal_confirm': 'Confirm', 'modal_receive': '📥 Receive', 'modal_copy_addr': '📋 Copy Address',
+        'msg_install_wallet': 'Please install MetaMask or use TP/OKX Wallet', 'msg_switch_net': 'Please switch to BSC Mainnet manually', 'msg_connected': '✅ Wallet connected', 'msg_wrong_addr': 'Invalid address', 'msg_input_amt': 'Enter valid amount', 'msg_confirm_transfer': 'Confirm Transfer', 'msg_processing': '⏳ Processing...', 'msg_success': '✅ Success', 'msg_failed': '❌ Failed: ',
+        'msg_approving': 'Approving...', 'msg_buying': 'Buying...', 'msg_buy_success': '✅ Purchase success', 'msg_claim_success': '✅ Claim success', 'msg_copied': '✅ Copied', 'msg_claim_failed': 'Claim failed: ', 'msg_custody_warning': 'First custody must be ≥ 100 USDT', 'msg_withdraw_warning': '⚠️ Warning: Withdrawing will destroy your 50% mining principal and all unclaimed rewards! Continue?',
+        'msg_rayt_auth': 'Approving RAYT...', 'msg_claiming_mining': 'Claiming mining...', 'msg_claiming_call': 'Claiming call...', 'msg_tax_insufficient': 'Claim failed (check RAYT balance): ',
+        'chart_1m': '1m', 'chart_5m': '5m', 'chart_15m': '15m', 'chart_1h': '1h', 'chart_4h': '4h', 'chart_1d': '1d',
+        'mining_machine': 'Machine', 'mining_red_warning': '⚠️ Must claim daily, unclaimed rewards will not accumulate!', 'mining_airdrop_label': 'Airdrop', 'mining_pay_btn': 'Pay', 'mining_sold_out': 'All machines sold out or purchased', 'mining_claiming': 'Claiming...'
     },
     'fr': {
-        'title': '⚡ Écosystème RAYC', 'unconnected': 'Déconnecté', 'connect_wallet': 'Connecter', 'connected': '✅ Connecté',
-        'menu_title': '📋 Menu', 'menu_flash_swap': 'Ordre', 'menu_chat': 'Chat', 'menu_farm': 'Ferme', 'menu_game': 'Jeu', 'menu_news': 'Échange', 'menu_notice': 'Boutique', 'menu_activity': 'Dividende', 'menu_community': 'Épargne', 'menu_about': 'À propos',
-        'nav_home': 'Accueil', 'nav_mining': 'Minage', 'nav_workshop': 'Atelier', 'nav_custody': 'Dépôt', 'nav_wallet': 'Portefeuille',
-        'cust_title': '💼 Mon Panneau', 'cust_status': 'Statut', 'cust_active': '✅ Actif', 'cust_inactive': 'Inactif', 'cust_claim_mining': 'Réclamer Minage (RAYC-A)', 'cust_p_mining': 'Minage en attente (RAYC-A)',
-        'active': '✅ Actif', 'inactive': 'Inactif', 'people': 'pers'
+        'title': '⚡ RAYC Éco', 'unconnected': 'Non connecté', 'connect_wallet': 'Connecter le portefeuille', 'connected': '✅ Connecté',
+        'menu_title': '📋 Menu', 'menu_flash_swap': 'Échange', 'menu_chat': 'Chat', 'menu_farm': 'Ferme', 'menu_game': 'Jeu', 'menu_news': 'Actualités', 'menu_notice': 'Avis', 'menu_activity': 'Activité', 'menu_community': 'Yuebao', 'menu_about': 'À propos',
+        'nav_home': 'Accueil', 'nav_mining': 'Exploitation', 'nav_workshop': 'Atelier', 'nav_custody': 'Dépôt', 'nav_wallet': 'Portefeuille',
+        'burn_title': 'Total RAYC Brûlé', 'burn_subtitle': 'Mécanisme déflationniste en cours',
+        'burn_title_a': 'Total RAYC-A Brûlé', 'burn_subtitle_a': 'Mécanisme déflationniste en cours',
+        'notice_title': '📢 Annonce Système',
+        'mining_title': '💎 Infos d\'exploitation', 'mining_vip_status': 'Statut VIP', 'mining_referrer': 'Mon parrain', 'mining_daily_output': 'Production quotidienne',
+        'mining_progress_title': '📈 Progression des ventes', 'mining_sold_total': 'Vendu / Total',
+        'mining_my_machine': '⛏️ Ma machine', 'mining_no_machine': 'Aucune machine achetée', 'mining_start_time': 'Heure de début', 'mining_mined_days': 'Jours minés', 'mining_total_claimed': 'Total réclamé RAYT', 'mining_today_pending': 'En attente aujourd\'hui', 'mining_claim_btn': '💰 Réclamer la production', 'mining_warning': '⚠️ Réclamation manuelle quotidienne requise, sinon expiration !',
+        'mining_buy_title': '🛒 Obtenir une machine', 'mining_airdrop': '🎁 Airdrop : Voir détails', 'mining_ref_placeholder': 'Adresse du parrain (Auto)', 'mining_buy_btn': '🚀 Payer pour la machine', 'mining_buy_warning': '⚠️ Parrain auto-lié, réclamation manuelle quotidienne.',
+        'mining_reward_title': '🎁 Mes récompenses de filleuls', 'mining_pending_rayt': 'RAYT en attente', 'mining_pending_usdt': 'USDT en attente', 'mining_claim_rayt': 'Réclamer RAYT', 'mining_claim_usdt': 'Réclamer USDT',
+        'mining_total_rayt': 'Total réclamé RAYT', 'mining_total_usdt': 'Total réclamé USDT', 'mining_team_count': 'Taille de l\'équipe', 'mining_link': 'Lien d\'invitation :', 'mining_copy': '📋 Copier le lien', 'mining_reward_warning': '⚠️ Seuls les VIP (Dépôt≥100U) accumulent des récompenses !',
+        'active': '✅ Actif', 'inactive': 'Inactif', 'no_referrer': 'Aucun parrain', 'people': 'Personnes',
+        'ws_title': '👑 Mon Atelier', 'ws_usdt': 'Solde USDT', 'ws_level': 'Mon niveau', 'ws_not_bought': 'Non acheté', 'ws_meal_progress': 'Progression repas',
+        'ws_div_title': '💰 Mes dividendes', 'ws_pending_div': 'Dividendes en attente (USDT)', 'ws_claimed_total': 'Total réclamé', 'ws_claim_div': '💰 Réclamer dividendes', 'ws_pool': 'Pool de dividendes',
+        'ws_meal_subsidy_title': '💰 Repas & Subventions', 'ws_pending_meal': 'Repas en attente', 'ws_claim_meal': '💰 Réclamer repas', 'ws_pending_subsidy': 'Subvention en attente', 'ws_claim_subsidy': '💰 Réclamer subvention',
+        'ws_buy_title': '🛒 Acheter un atelier', 'ws_sold': 'Vendu', 'ws_weight': 'Poids', 'ws_direct_reward': 'Récompense directe', 'ws_subsidy_pool': 'Pool de subventions', 'ws_closed': 'Fermé', 'ws_buy_now': '🚀 Acheter maintenant', 'ws_owned': '✅ Possédé', 'ws_unpublished': 'Non publié', 'ws_buy_warning': '💡 Note : La récompense directe est envoyée <b style="color:#10b981;">instantanément</b> au parrain.',
+        'ws_ref_title': '🔗 Lien de parrainage', 'ws_ref_link': 'Lien d\'invitation :', 'ws_copy_link': '📋 Copier le lien',
+        'team_info_title': '🤝 Infos de mon Équipe', 'direct_count': 'Parrainages Directs', 
+        'team_count_custody': 'Équipe Totale (Stats Dépôt)', 'team_count_real': 'Équipe Totale (Réel)',
+        'team_workshop_count': 'Ateliers de l\'équipe (Scanner)', 
+        'btn_scan_team': '📥 Obtenir les détails et compter', 'btn_scanning_team': '⏳ Analyse de la blockchain...', 'btn_rescan_team': '🔄 Rescanner & Compter',
+        'msg_scanning': 'Analyse des achats sur la blockchain en cours...', 'msg_no_direct': 'Aucun parrainage direct trouvé récemment',
+        'msg_scan_fail': 'Échec de l\'analyse : ', 'copy_text': 'Copier',
+        'cust_title': '💼 Panneau de dépôt', 'cust_status': 'Statut', 'cust_start_time': 'Heure de début du dépôt', 'cust_active': '✅ Actif', 'cust_inactive': 'Inactif', 'cust_total': 'Total dépôt', 'cust_mining_p': '50% Exploitation', 'cust_call_p': '50% Appel', 'cust_big_area': 'Vol. Grande zone', 'cust_small_area': 'Vol. Petite zone', 'cust_team': 'Taille équipe', 'cust_a_level': 'Niveau A', 'cust_c_level': 'Niveau C', 'cust_refresh': '🔄 Actualiser', 'cust_big_small_stat': '📊 Stats Grandes/Petites Zones',
+        'cust_income_title': '📊 Détails des revenus (Manuel)', 
+        'cust_p_mining': 'Exploitation en attente (RAYC-A)', 
+        'cust_c_mining': 'Exploitation réclamée (Val. U)', 
+        'cust_claim_mining': 'Réclamer exploitation (Reçoit RAYC-A)', 
+        'cust_p_call': 'Appel en attente', 'cust_c_call': 'Appel réclamé', 'cust_claim_call': 'Réclamer appel (Reçoit USDT)', 
+        'cust_p_ref': 'Parrainage en attente', 'cust_c_ref': 'Parrainage réclamé', 'cust_claim_ref': 'Réclamer parrainage', 'cust_p_level': 'Niveau en attente', 'cust_c_level_reward': 'Niveau réclamé', 'cust_claim_level': 'Réclamer niveau',
+        'cust_op_title': '🚀 Action de dépôt', 'cust_op_warning': 'Première fois ≥100U, un ajout ne réinitialise pas le temps.', 'cust_deposit_placeholder': 'Entrer le montant USDT', 'cust_deposit_btn': '💰 Confirmer / Ajouter', 'cust_withdraw_warning': '⚠️ Retirer le principal d\'appel détruira 50% du principal d\'exploitation !', 'cust_withdraw_btn': '💸 Retirer le principal d\'appel',
+        'bind_ref_title': '🔗 Confirmer le Parrain', 'bind_ref_msg': 'Premier achat détecté. Liaison à :', 'bind_ref_warning': '⚠️ Ne peut pas être modifié après liaison.', 'bind_ref_close': 'Fermer', 'bind_ref_confirm': 'Confirmer & Payer',
+        'wallet_addr': 'Mon adresse de portefeuille', 'wallet_copy': '📋 Copier l\'adresse', 'wallet_transfer': 'Transférer', 'wallet_receive': 'Recevoir', 'wallet_go_mining': 'Aller à l\'exploitation',
+        'wallet_token_title': '💰 Solde des jetons', 'wallet_connect_hint': 'Connectez le portefeuille', 'wallet_asset_title': '📊 Statistiques', 'wallet_total_value': 'Valeur totale', 'wallet_based_price': 'Basé sur le prix actuel', 'wallet_rayc_price': 'Prix RAYC-A', 'wallet_realtime': 'PancakeSwap Temps réel',
+        'modal_transfer': '📤 Transférer', 'modal_select_token': 'Sélectionner le jeton', 'modal_receive_addr': 'Adresse de réception', 'modal_amount': 'Montant', 'modal_confirm': 'Confirmer', 'modal_receive': '📥 Recevoir', 'modal_copy_addr': '📋 Copier l\'adresse',
+        'msg_install_wallet': 'Veuillez installer MetaMask ou TP/OKX', 'msg_switch_net': 'Veuillez passer au BSC Mainnet', 'msg_connected': '✅ Portefeuille connecté', 'msg_wrong_addr': 'Adresse invalide', 'msg_input_amt': 'Entrez un montant valide', 'msg_confirm_transfer': 'Confirmer le transfert', 'msg_processing': '⏳ Traitement...', 'msg_success': '✅ Succès', 'msg_failed': '❌ Échec: ',
+        'msg_approving': 'Approbation...', 'msg_buying': 'Achat...', 'msg_buy_success': '✅ Achat réussi', 'msg_claim_success': '✅ Réclamation réussie', 'msg_copied': '✅ Copié', 'msg_claim_failed': 'Échec de la réclamation: ', 'msg_custody_warning': 'Le premier dépôt doit être ≥ 100 USDT', 'msg_withdraw_warning': '⚠️ Attention : Le retrait détruira 50% de votre principal d\'exploitation et toutes les récompenses non réclamées ! Continuer ?',
+        'msg_rayt_auth': 'Approbation RAYT...', 'msg_claiming_mining': 'Réclamation exploitation...', 'msg_claiming_call': 'Réclamation appel...', 'msg_tax_insufficient': 'Échec (vérifiez le solde RAYT): ',
+        'chart_1m': '1m', 'chart_5m': '5m', 'chart_15m': '15m', 'chart_1h': '1h', 'chart_4h': '4h', 'chart_1d': '1j',
+        'mining_machine': 'Machine', 'mining_red_warning': '⚠️ Réclamation manuelle quotidienne requise, sinon expiration !', 'mining_airdrop_label': 'Airdrop', 'mining_pay_btn': 'Payer', 'mining_sold_out': 'Toutes les machines sont épuisées ou achetées', 'mining_claiming': 'Réclamation...'
     }
 };
 
@@ -560,9 +727,13 @@ const I18n = {
         localStorage.setItem('lang', lang);
         this.applyLang(lang);
         if (typeof refreshCurrentPage === 'function') refreshCurrentPage();
+        const wLevelEl = document.getElementById('ws-level');
+        if(wLevelEl && wLevelEl.innerText === '运营中心') {
+            wLevelEl.innerText = I18n.t('ws_level'); 
+        }
     },
     t(key) {
-        return i18nData[this.currentLang] && i18nData[this.currentLang][key] ? i18nData[this.currentLang][key] : (i18nData['zh-CN'][key] || key);
+        return i18nData[this.currentLang][key] || i18nData['zh-CN'][key] || key;
     },
     applyLang(lang) {
         document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -591,52 +762,47 @@ function closeMenu() {
     document.getElementById('menuDrawer').classList.remove('active');
 }
 
-// === 提前定义所有常量，避免 TDZ 报错 ===
-const a1Threshold = ethers.utils.parseEther("100");
-const a2Threshold = ethers.utils.parseEther("500");
-const a3Threshold = ethers.utils.parseEther("1000");
-const levelConfigs = [[0, 0], [5000, 2000], [20000, 10000], [60000, 30000], [200000, 100000], [600000, 300000], [2000000, 1000000], [6000000, 3000000], [10000000, 5000000], [20000000, 10000000]];
-function calcALevel(pvWei) {
-    if (pvWei.gte(a3Threshold)) return 3;
-    if (pvWei.gte(a2Threshold)) return 2;
-    if (pvWei.gte(a1Threshold)) return 1;
-    return 0;
-}
-function calcCLevel(bigWei, smallWei) {
-    const big = parseFloat(ethers.utils.formatEther(bigWei));
-    const small = parseFloat(ethers.utils.formatEther(smallWei));
-    for (let i = 9; i >= 1; i--) {
-        if (big >= levelConfigs[i][0] && small >= levelConfigs[i][1]) return i;
-    }
-    return 0;
-}
-
 const CONFIG = {
     chainId: 56,
-    MARKETING_EXTRA_SOLD: 40, 
-    MARKETING_EXTRA_MAX: 0,  
-    MACHINE_EXTRA_SOLD: { 0: 34, 1: 6 }, 
+    
+    // 1. 全网矿机总进度条
+    MARKETING_EXTRA_SOLD: 40,
+    MARKETING_EXTRA_MAX: 0, 
+    
+    // 2. 单个矿机卡片上的进度
+    MACHINE_EXTRA_SOLD: { 0: 34, 1: 6 },
     MACHINE_EXTRA_MAX: { 0: 0, 1: 0 },
+    
+    // 3. 工作室销售进度（1对应W1，2对应W2）
     WORKSHOP_EXTRA_SOLD: { 1: 3, 2: 2 }, 
     WORKSHOP_EXTRA_MAX: { 1: 0, 2: 0 },
+    
     SHOW_TOTAL_MAX: false,
 
     miningContract:    "0x8B58dFa04cb6fA855263a6B60AA939D6e38eEcA9",
     workshopContract:  "0xff625a83ed6a527061020954E00F8c52Ee9BC1BD",
     dividendContract:  "0x06e57ef8f472736484b43a07393264d87114eb40",
+    
+    // ✅ 修改为最新的托管合约
     custodyContract:   "0x30Ee259feC5656144f99F7C98a8b620467158774",
+    
     referralRegistry:  "0x2EA13E42C0e05678D50d010Ca2D390742626EA9e",
     usdtToken:         "0x55d398326f99059fF775485246999027B3197955",
     raycToken:         "0x1AAafebB2247616a8f290115df8d63Acaac47d49",
     raytToken:         "0x88201e877C4FC38D2C1c3AF20A32234629f02405",
+    
     raycUsdtPair:      "0x5a01c7D5a8357e3602a0D82b013EF821f03C551B",
+
+    // ✅ 修改为最新的 RAYC-A 代币地址
     raycaToken:        "0x0E80f1b2C6A997197bEc630b18fbe23D0F68B620",
     raycaUsdtPair:     "0x01251cfaB3438637b66A432508AF803e706458F5", 
 
+    apiBase:           "https://www.rayc.raymondream.com/api.php",
+
     NOTICE_CONTENT: `
         <p style="color:#facc15;font-weight:bold;margin-bottom:10px;">🎉 欢迎来到 RAYC 生态中心！</p>
-        <p>1. 由于RAYC收到不明攻击，为了保障共识者的利益，我们打造个更完美的RAYC-A代币。</p>
-        <p>2. RAYC-A 已正式上线，请前往生态应用进行Swap闪兑（金本位兑换）!!!</p>
+        <p>1. RaymondChain是全球领先的区块链技术公司。</p>
+        <p>2. 它专注于构建去中心化生态系统，以顶尖技术驱动，打造安全、高效、普惠的区块链价值网络!!!</p>
         <p>3. 官方绝不会私聊索要私钥，请警惕诈骗。</p>
         <br>
         <p style="color:#10b981;font-weight:bold; text-align:right;">—— Raymond</p>
@@ -652,17 +818,20 @@ const ABI = {
         "function deposit(uint256 amount) external", 
         "function withdrawCall() external",
         "function custodies(address) view returns (uint256 totalAmount, uint256 miningPrincipal, uint256 callPrincipal, uint256 startTime, uint256 lastMiningClaimDay, uint256 miningClaimedDays, uint256 callCount, uint256 callClaimedCount, bool active)",
-        "function bigArea(address) view returns (uint256)", 
-        "function smallArea(address) view returns (uint256)",
         "function personalVolume(address) view returns (uint256)",
+        "function bigArea(address) view returns (uint256)",
+        "function smallArea(address) view returns (uint256)",
         "function pendingReferralUSDT(address) view returns (uint256)",
         "function pendingLevelUSDT(address) view returns (uint256)",
-        "function raycAPrice() view returns (uint256)",
-        "function callProfitBps() view returns (uint256)",
-        "function miningDailyBps() view returns (uint256)",
-        "function claimedReferralUSDT(address) view returns (uint256)", 
+        "function claimedReferralUSDT(address) view returns (uint256)",
         "function claimedLevelUSDT(address) view returns (uint256)",
-        "function claimMining() external", "function claimCall() external", "function claimReferral() external", "function claimLevel() external",
+        "function raycAPrice() view returns (uint256)",
+        "function miningDailyBps() view returns (uint256)",
+        "function callProfitBps() view returns (uint256)",
+        "function claimMining() external", 
+        "function claimCall() external", 
+        "function claimReferral() external", 
+        "function claimLevel() external",
         "function overrideA(address) view returns (uint8)",
         "function overrideC(address) view returns (uint8)"
     ],
@@ -688,7 +857,6 @@ const ABI = {
 const rpcProvider = new ethers.providers.JsonRpcProvider("https://bsc-dataseed.bnbchain.org/");
 const readOnlyPairContract = new ethers.Contract(CONFIG.raycUsdtPair, ABI.pair, rpcProvider);
 const readOnlyRaycContract = new ethers.Contract(CONFIG.raycToken, ABI.erc20, rpcProvider);
-
 const readOnlyPairContractA = new ethers.Contract(CONFIG.raycaUsdtPair, ABI.pair, rpcProvider);
 const readOnlyRaycaContract = new ethers.Contract(CONFIG.raycaToken, ABI.erc20, rpcProvider);
 
@@ -805,8 +973,8 @@ document.querySelectorAll('.nav-item').forEach(btn => {
         currentPage = btn.dataset.page;
         if (currentPage === 'home') {
             setTimeout(() => { 
-                if(chart) chart.applyOptions({ width: document.getElementById('chart').clientWidth }); 
-                if(chartA) chartA.applyOptions({ width: document.getElementById('chart-a').clientWidth }); 
+                if(chart) chart.applyOptions({ width: document.getElementById('chart').clientWidth || 320 }); 
+                if(chartA) chartA.applyOptions({ width: document.getElementById('chart-a').clientWidth || 320 }); 
             }, 100);
         }
         refreshCurrentPage();
@@ -824,8 +992,10 @@ function refreshCurrentPage(){
 
 function initChart(){
     const container = document.getElementById('chart'); if(!container || chart) return;
+    // 修复 width 为 0 时报错导致钱包连不上的 Bug
+    const w = container.clientWidth || 320;
     chart = LightweightCharts.createChart(container, { 
-        width: container.clientWidth, height: 320, 
+        width: w, height: 320, 
         layout: { background: { color: 'transparent' }, textColor: '#94a3b8' }, 
         grid: { vertLines: { color: 'rgba(79,172,254,0.06)' }, horzLines: { color: 'rgba(79,172,254,0.06)' } }, 
         timeScale: { borderColor: 'rgba(79,172,254,0.2)', timeVisible: true, secondsVisible: false },
@@ -840,8 +1010,9 @@ function initChart(){
 
 function initChartA(){
     const container = document.getElementById('chart-a'); if(!container || chartA) return;
+    const w = container.clientWidth || 320;
     chartA = LightweightCharts.createChart(container, { 
-        width: container.clientWidth, height: 320, 
+        width: w, height: 320, 
         layout: { background: { color: 'transparent' }, textColor: '#94a3b8' }, 
         grid: { vertLines: { color: 'rgba(79,172,254,0.06)' }, horzLines: { color: 'rgba(79,172,254,0.06)' } }, 
         timeScale: { borderColor: 'rgba(79,172,254,0.2)', timeVisible: true, secondsVisible: false },
@@ -855,8 +1026,8 @@ function initChartA(){
 }
 
 window.addEventListener('resize', () => { 
-    if(chart && document.getElementById('chart')) chart.applyOptions({ width: document.getElementById('chart').clientWidth }); 
-    if(chartA && document.getElementById('chart-a')) chartA.applyOptions({ width: document.getElementById('chart-a').clientWidth }); 
+    if(chart && document.getElementById('chart')) chart.applyOptions({ width: document.getElementById('chart').clientWidth || 320 }); 
+    if(chartA && document.getElementById('chart-a')) chartA.applyOptions({ width: document.getElementById('chart-a').clientWidth || 320 }); 
 });
 
 document.querySelectorAll('#timeframes button').forEach(btn => {
@@ -983,7 +1154,7 @@ async function updateCharts() {
 
 function startChartTimer() {
     if (chartTimer) return;
-    updateCharts();
+    updateCharts(); 
     chartTimer = setInterval(updateCharts, 5000);
 }
 
@@ -1471,7 +1642,27 @@ document.getElementById('ws-claim-subsidy-btn').onclick = async () => { try{ awa
 const wsCopyBtn = document.getElementById('ws-copy-btn');
 if (wsCopyBtn) wsCopyBtn.onclick = () => { const el = document.getElementById('ws-link'); if (el) copyText(el.innerText, 'ws-log'); };
 
-// ==================== 托管中心 (基于最新 V10 合约逻辑) ====================
+// === 提前定义所有常量，避免 TDZ 报错 ===
+const a1Threshold = ethers.utils.parseEther("100");
+const a2Threshold = ethers.utils.parseEther("500");
+const a3Threshold = ethers.utils.parseEther("1000");
+const levelConfigs = [[0, 0], [5000, 2000], [20000, 10000], [60000, 30000], [200000, 100000], [600000, 300000], [2000000, 1000000], [6000000, 3000000], [10000000, 5000000], [20000000, 10000000]];
+function calcALevel(pvWei) {
+    if (pvWei.gte(a3Threshold)) return 3;
+    if (pvWei.gte(a2Threshold)) return 2;
+    if (pvWei.gte(a1Threshold)) return 1;
+    return 0;
+}
+function calcCLevel(bigWei, smallWei) {
+    const big = parseFloat(ethers.utils.formatEther(bigWei));
+    const small = parseFloat(ethers.utils.formatEther(smallWei));
+    for (let i = 9; i >= 1; i--) {
+        if (big >= levelConfigs[i][0] && small >= levelConfigs[i][1]) return i;
+    }
+    return 0;
+}
+
+// ==================== 托管中心 (基于 V10 合约逻辑修复) ====================
 async function refreshCustody(){
     try{
         const base = await contracts.custody.custodies(userAddress);
@@ -1494,25 +1685,24 @@ async function refreshCustody(){
         
         document.getElementById('cust-big-area').innerText = fmt(big) + ' USDT';
         document.getElementById('cust-small-area').innerText = fmt(small) + ' USDT';
-        
-        // 最新合约没有直接返回 teamCount，这里用直推模拟，或留空
-        document.getElementById('cust-team-count').innerText = '--';
+        document.getElementById('cust-team-count').innerText = '--'; // V10 合约没有直接返回 teamCount，前端暂时留空
 
-        // 优先读取 override，如果没有则动态计算
-        let aLvl = 0;
-        let cLvl = 0;
+        // 优先读取 override，如果没有则本地计算
+        let finalA = calcALevel(pv);
+        let finalC = calcCLevel(big, small);
+        
         try {
             const ovA = await contracts.custody.overrideA(userAddress);
-            aLvl = Number(ovA) > 0 ? Number(ovA) : calcALevel(pv);
-        } catch(e) { aLvl = calcALevel(pv); }
-
+            if (Number(ovA) > 0) finalA = Number(ovA);
+        } catch(e){}
+        
         try {
             const ovC = await contracts.custody.overrideC(userAddress);
-            cLvl = Number(ovC) > 0 ? Number(ovC) : calcCLevel(big, small);
-        } catch(e) { cLvl = calcCLevel(big, small); }
+            if (Number(ovC) > 0) finalC = Number(ovC);
+        } catch(e){}
 
-        document.getElementById('cust-a-level').innerText = `A${aLvl}`;
-        document.getElementById('cust-c-level').innerText = `C${cLvl}`;
+        document.getElementById('cust-a-level').innerText = `A${finalA}`;
+        document.getElementById('cust-c-level').innerText = `C${finalC}`;
 
         let pMineRaycA = 0;
         let pMineUSDT = 0;
@@ -1553,10 +1743,8 @@ async function refreshCustody(){
         document.getElementById('cust-p-ref').innerText = fmt(pRef) + ' USDT';
         document.getElementById('cust-p-level').innerText = fmt(pLvl) + ' USDT';
 
-        // 合约没有直接返回已领挖矿和调用，暂时显示 0
         document.getElementById('cust-c-mining').innerText = "0.00 USDT";
         document.getElementById('cust-c-call').innerText = "0.00 USDT";
-        
         document.getElementById('cust-c-ref').innerText = fmt(await contracts.custody.claimedReferralUSDT(userAddress)) + ' USDT';
         document.getElementById('cust-c-level-reward').innerText = fmt(await contracts.custody.claimedLevelUSDT(userAddress)) + ' USDT';
 
@@ -1587,6 +1775,7 @@ document.getElementById('cust-withdraw-btn').onclick = async () => {
     catch(e) { log('cust-log', I18n.t('msg_failed') + (e.reason||e.message), true); alert(e.reason||e.message); }
 };
 
+// ✅ V10 合约内部已处理扣 RAYT，但需要前端先 approve RAYT
 document.getElementById('cust-claim-mining-btn').onclick = async () => {
     try {
         const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
@@ -1609,9 +1798,10 @@ document.getElementById('cust-claim-call-btn').onclick = async () => {
     } catch(e) { log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true); alert(I18n.t('msg_claim_failed') + (e.reason||e.message)); }
 };
 
-// ✅ 新合约内部已处理扣 RAYT，直接调用即可
 document.getElementById('cust-claim-ref-btn').onclick = async () => {
     try {
+        const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
+        if(al.lt(ethers.constants.MaxUint256.div(2))) { log('cust-log', I18n.t('msg_rayt_auth')); await (await contracts.rayt.approve(CONFIG.custodyContract, ethers.constants.MaxUint256)).wait(); }
         log('cust-log', I18n.t('msg_processing'));
         await (await contracts.custody.claimReferral()).wait();
         log('cust-log', I18n.t('msg_claim_success'));
@@ -1624,6 +1814,8 @@ document.getElementById('cust-claim-ref-btn').onclick = async () => {
 
 document.getElementById('cust-claim-level-btn').onclick = async () => {
     try {
+        const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
+        if(al.lt(ethers.constants.MaxUint256.div(2))) { log('cust-log', I18n.t('msg_rayt_auth')); await (await contracts.rayt.approve(CONFIG.custodyContract, ethers.constants.MaxUint256)).wait(); }
         log('cust-log', I18n.t('msg_processing'));
         await (await contracts.custody.claimLevel()).wait();
         log('cust-log', I18n.t('msg_claim_success'));
