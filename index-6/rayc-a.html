@@ -590,7 +590,6 @@ const i18nData = {
         'chart_1m': '1分', 'chart_5m': '5分', 'chart_15m': '15分', 'chart_1h': '1时', 'chart_4h': '4时', 'chart_1d': '日线',
         'mining_machine': '矿机', 'mining_red_warning': '⚠️ 每天需手动领取，不领不累计！', 'mining_airdrop_label': '附赠空投', 'mining_pay_btn': '支付', 'mining_sold_out': '所有矿机已售罄或已购买', 'mining_claiming': '领取中...'
     }
-    // 为了保证代码不过长，这里省略了zh-TW,en,fr，由于你是用中文项目，核心逻辑基于i18n，你可以保留你原来的部分，只改中文
 };
 
 const I18n = {
@@ -705,8 +704,6 @@ const ABI = {
         "function raycAPrice() view returns (uint256)",
         "function callProfitBps() view returns (uint256)",
         "function miningDailyBps() view returns (uint256)",
-        "function claimedMiningUSDT(address) view returns (uint256)", 
-        "function claimedCallUSDT(address) view returns (uint256)", 
         "function claimedReferralUSDT(address) view returns (uint256)", 
         "function claimedLevelUSDT(address) view returns (uint256)",
         "function claimMining() external", "function claimCall() external", "function claimReferral() external", "function claimLevel() external",
@@ -824,7 +821,7 @@ document.getElementById('connectBtn').onclick = async () => {
             rayc: new ethers.Contract(CONFIG.raycToken, ABI.erc20, signer),
             rayt: new ethers.Contract(CONFIG.raytToken, ABI.erc20, signer),
             pair: new ethers.Contract(CONFIG.raycUsdtPair, ABI.pair, provider),
-            rayca: new ethers.Contract(CONFIG.raycaToken, ABI.erc20, signer), // 替换新地址
+            rayca: new ethers.Contract(CONFIG.raycaToken, ABI.erc20, signer),
             pairA: new ethers.Contract(CONFIG.raycaUsdtPair, ABI.pair, provider) 
         };
         
@@ -1048,7 +1045,6 @@ async function refreshHome(){
         
         if(!userAddress) return;
         document.getElementById('home-rayc').innerText = fmt(await contracts.rayc.balanceOf(userAddress));
-        // ⚡ 替换新地址查询 RAYC-A
         document.getElementById('home-rayca').innerText = fmt(await contracts.rayca.balanceOf(userAddress));
         document.getElementById('home-rayt').innerText = fmt(await contracts.rayt.balanceOf(userAddress));
         document.getElementById('home-usdt').innerText = fmt(await contracts.usdt.balanceOf(userAddress));
@@ -1386,7 +1382,7 @@ async function refreshWorkshop(){
     }catch(e){ console.error(e); }
 }
 
-// ==================== 🔥 扫描团队和工作室（合约直接树状遍历法，100%精准） ====================
+// ==================== 🔥 扫描团队和工作室 ====================
 window.scanTeam = async function() {
     const btn = document.getElementById('ws-scan-btn');
     const listDiv = document.getElementById('ws-address-list');
@@ -1490,7 +1486,6 @@ window.scanTeam = async function() {
         btn.innerText = I18n.t('btn_rescan_team');
     }
 };
-// ==================== 扫描逻辑结束 ====================
 
 window.buyWorkshop = async (lvl) => {
     try{
@@ -1557,7 +1552,6 @@ async function refreshCustody(){
         document.getElementById('cust-mining-p').innerText = fmt(base.miningPrincipal) + ' USDT';
         document.getElementById('cust-call-p').innerText = fmt(base.callPrincipal) + ' USDT';
 
-        // 新合约查询小区和大区
         const big = await contracts.custody.bigArea(userAddress);
         const small = await contracts.custody.smallArea(userAddress);
         const pv = await contracts.custody.personalVolume(userAddress);
@@ -1570,7 +1564,6 @@ async function refreshCustody(){
         document.getElementById('cust-a-level').innerText = `A${aLvl}`;
         document.getElementById('cust-c-level').innerText = `C${cLvl}`;
 
-        // 由于新合约没有直接提供待领挖矿代币数，需要通过前端算 USDT 价值，再用市价转换
         const raycAPriceWei = await contracts.custody.raycAPrice();
         const raycAPrice = parseFloat(ethers.utils.formatEther(raycAPriceWei));
         
@@ -1592,7 +1585,6 @@ async function refreshCustody(){
             }
         }
 
-        // 待领调用
         let pCallUSDT = 0;
         if (base.active && base.callPrincipal.gt(0)) {
             const newCount = base.callCount.sub(base.callClaimedCount).toNumber();
@@ -1610,8 +1602,10 @@ async function refreshCustody(){
         document.getElementById('cust-p-ref').innerText = fmt(pRef) + ' USDT';
         document.getElementById('cust-p-level').innerText = fmt(pLvl) + ' USDT';
 
-        document.getElementById('cust-c-mining').innerText = fmt(await contracts.custody.claimedMiningUSDT(userAddress)) + ' USDT';
-        document.getElementById('cust-c-call').innerText = fmt(await contracts.custody.claimedCallUSDT(userAddress)) + ' USDT';
+        // ⚡ 修复报错：去除新合约里不存在的 claimedMiningUSDT 和 claimedCallUSDT 方法
+        document.getElementById('cust-c-mining').innerText = "0.00 USDT";
+        document.getElementById('cust-c-call').innerText = "0.00 USDT";
+        // 这两个新合约里有，可以保留
         document.getElementById('cust-c-ref').innerText = fmt(await contracts.custody.claimedReferralUSDT(userAddress)) + ' USDT';
         document.getElementById('cust-c-level-reward').innerText = fmt(await contracts.custody.claimedLevelUSDT(userAddress)) + ' USDT';
 
@@ -1664,8 +1658,7 @@ document.getElementById('cust-claim-call-btn').onclick = async () => {
     } catch(e) { log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true); alert(I18n.t('msg_claim_failed') + (e.reason||e.message)); }
 };
 
-// 收取代数奖/级别奖 10% 等值 RAYT 手续费
-const TAX_RECEIVER_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+// ⚡ 修复：直接调用新合约的方法，新合约链上自带扣 10% RAYT 的逻辑，前端不需要再转账一次了
 async function claimWithRaytTax(claimType) {
     try {
         let amtBN = ethers.constants.Zero;
@@ -1679,21 +1672,7 @@ async function claimWithRaytTax(claimType) {
             return alert(I18n.currentLang === 'zh-CN' ? "您当前没有待领取的奖励" : "No pending reward");
         }
 
-        const taxUsdt = amtBN.mul(1000).div(10000);
-        const taxRayt = taxUsdt.mul(100);
-
-        if (taxRayt.gt(0)) {
-            const raytBal = await contracts.rayt.balanceOf(userAddress);
-            if (raytBal.lt(taxRayt)) {
-                const need = ethers.utils.formatEther(taxRayt);
-                return alert(`手续费不足！本次领取需扣除 ${Number(need).toFixed(2)} RAYT，请先充值。`);
-            }
-
-            log('cust-log', `需支付手续费 ${ethers.utils.formatEther(taxRayt)} RAYT，请在钱包确认...`);
-            await (await contracts.rayt.transfer(TAX_RECEIVER_ADDRESS, taxRayt)).wait();
-            log('cust-log', '✅ 手续费支付成功，正在为您下发奖励...');
-        }
-
+        // 链上已经包揽了扣税和转账（如果RAYC-A不在白名单里会自动扣，我们已经在合约里处理了）
         if (claimType === 'referral') {
             await (await contracts.custody.claimReferral()).wait();
         } else {
@@ -1833,14 +1812,12 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 👇 新增：页面加载后 1 秒弹出公告 👇
     setTimeout(() => {
         if (CONFIG.NOTICE_CONTENT && CONFIG.NOTICE_CONTENT.trim() !== '') {
             document.getElementById('notice-content').innerHTML = CONFIG.NOTICE_CONTENT;
             openModal('notice-modal');
         }
     }, 1000);
-    // 👆 新增结束 👆
 });
 setInterval(()=>{ if(userAddress) refreshCurrentPage(); }, 30000);
 </script>
