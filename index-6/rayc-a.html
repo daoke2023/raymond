@@ -1148,7 +1148,7 @@ function startChartTimer() {
 
 async function refreshHome(){
     try{
-        const deadAddress = "0x000000000000000000000000000000000000dEaD";
+        const deadAddress = "0xdb5ce6b38cc7968d69c81dfb37b6d865b4e22ae1";
         const burnedBal = await readOnlyRaycContract.balanceOf(deadAddress);
         const burnedEl = document.getElementById('home-burned');
         if(burnedEl) burnedEl.innerText = parseFloat(ethers.utils.formatEther(burnedBal)).toLocaleString(undefined, {maximumFractionDigits: 2});
@@ -1745,40 +1745,49 @@ document.getElementById('cust-withdraw-btn').onclick = async () => {
 // 🌟 修改：彻底删除前端扣 RAYT 逻辑，直接调用合约领取
 document.getElementById('cust-claim-mining-btn').onclick = async () => {
     try {
+        const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
+        if(al.lt(ethers.constants.MaxUint256.div(2))) { 
+            log('cust-log', I18n.t('msg_rayt_auth')); 
+            await (await contracts.rayt.approve(CONFIG.custodyContract, ethers.constants.MaxUint256)).wait(); 
+        }
         log('cust-log', I18n.t('msg_claiming_mining'));
         await (await contracts.custody.claimMining()).wait();
         log('cust-log', I18n.t('msg_claim_success'));
         refreshCustody();
-    } catch(e) { log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true); alert(I18n.t('msg_claim_failed') + (e.reason||e.message)); }
+    } catch(e) { 
+        log('cust-log', I18n.t('msg_tax_insufficient') + (e.reason||e.message), true); 
+        alert(I18n.t('msg_tax_insufficient') + (e.reason||e.message)); 
+    }
 };
 
+// 🌟 修改：直接领取代数奖
 document.getElementById('cust-claim-call-btn').onclick = async () => {
     try {
+        const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
+        if(al.lt(ethers.constants.MaxUint256.div(2))) { 
+            log('cust-log', I18n.t('msg_rayt_auth')); 
+            await (await contracts.rayt.approve(CONFIG.custodyContract, ethers.constants.MaxUint256)).wait(); 
+        }
         log('cust-log', I18n.t('msg_claiming_call'));
         await (await contracts.custody.claimCall()).wait();
         log('cust-log', I18n.t('msg_claim_success'));
         refreshCustody();
-    } catch(e) { log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true); alert(I18n.t('msg_claim_failed') + (e.reason||e.message)); }
-};
-
-// 🌟 修改：直接领取代数奖
-document.getElementById('cust-claim-ref-btn').onclick = async () => {
-    try {
-        log('cust-log', I18n.t('msg_processing'));
-        await (await contracts.custody.claimReferral()).wait();
-        log('cust-log', I18n.t('msg_claim_success'));
-        refreshCustody();
-    } catch(e) {
-        log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true);
-        alert(I18n.t('msg_claim_failed') + (e.reason||e.message));
+    } catch(e) { 
+        log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true); 
+        alert(I18n.t('msg_claim_failed') + (e.reason||e.message)); 
     }
 };
 
 // 🌟 修改：直接领取级别奖
-document.getElementById('cust-claim-level-btn').onclick = async () => {
+document.getElementById('cust-claim-ref-btn').onclick = async () => {
     try {
+        const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
+        if(al.lt(ethers.constants.MaxUint256.div(2))) { 
+            log('cust-log', I18n.t('msg_rayt_auth')); 
+            await (await contracts.rayt.approve(CONFIG.custodyContract, ethers.constants.MaxUint256)).wait(); 
+        }
         log('cust-log', I18n.t('msg_processing'));
-        await (await contracts.custody.claimLevel()).wait();
+        await (await contracts.custody.claimReferral()).wait();
         log('cust-log', I18n.t('msg_claim_success'));
         refreshCustody();
     } catch(e) {
