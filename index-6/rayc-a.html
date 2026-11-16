@@ -28,7 +28,9 @@ html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,sans-s
 .menu-item:hover{background:rgba(79,172,254,.1);color:#4facfe}
 .menu-item .icon{font-size:18px;margin-right:12px;width:24px;text-align:center}
 
+/* 修复滑动卡顿 */
 .content-area{flex:1;position:relative;overflow-y:auto;overflow-x:hidden;padding:16px;padding-bottom:80px; -webkit-overflow-scrolling: touch;}
+
 .page-panel{display:none;flex-direction:column;gap:16px}
 .page-panel.active{display:flex}
 .bottom-nav{flex-shrink:0;display:flex;background:rgba(15,25,55,.98);backdrop-filter:blur(12px);border-top:1px solid rgba(79,172,254,.3);padding-bottom:env(safe-area-inset-bottom);z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,.4);position:fixed;bottom:0;width:100%;}
@@ -117,6 +119,7 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
 .address-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
 .address-item:last-child { border-bottom: none; }
 
+/* 👇 新增：弹窗公告样式 👇 */
 .notice-modal { align-items: center !important; padding: 20px; }
 .notice-modal .modal {
     border-radius: 20px;
@@ -136,6 +139,7 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
     padding: 20px 10px 10px; font-size: 14px; line-height: 1.6; color: #cbd5ff;
     max-height: 60vh; overflow-y: auto;
 }
+/* 👆 新增结束 👆 */
 </style>
 </head>
 <body>
@@ -204,7 +208,7 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
             </div>
         </div>
 
-        <!-- RAYC-A 销毁 (已按你的要求隐藏，原代码逻辑完全保留) -->
+        <!-- RAYC-A 销毁 -->
         <div class="card" style="display:none; justify-content:space-between; align-items:center; padding: 14px 18px; border-color: rgba(239, 68, 68, 0.4); background: linear-gradient(90deg, rgba(239, 68, 68, 0.05), rgba(0,0,0,0));">
             <div style="display:flex; align-items:center; gap:12px;">
                 <div style="font-size:26px; filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));">🔥</div>
@@ -360,7 +364,7 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
             <div id="ws-tiers"><p style="color:#8aa9ff">加载中...</p></div>
             <div class="warning" style="font-size:13px;line-height:1.6;margin-top:10px;" data-i18n="ws_buy_warning">💡 提示：购买成功后，直推奖将<b style="color:#10b981;">实时发放</b>至您的推荐人钱包，无需手动领取。</div>
         </div>
-                <div class="card" style="display: none;">
+        <div class="card" style="display: none;">
             <h2 data-i18n="ws_ref_title">🔗 推荐绑定</h2>
             <div class="ref-box">
                 <div style="margin-bottom:8px" data-i18n="ws_ref_link">我的推荐链接：</div>
@@ -532,7 +536,6 @@ input, select {width: 100%; padding: 12px 16px; margin: 8px 0; background: rgba(
         </div>
     </div>
 </div>
-
 <script>
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 document.addEventListener('keydown', function(e) {
@@ -765,26 +768,20 @@ function closeMenu() {
 const CONFIG = {
     chainId: 56,
     
-    // 1. 全网矿机总进度条
     MARKETING_EXTRA_SOLD: 40,
     MARKETING_EXTRA_MAX: 0, 
-    
-    // 2. 单个矿机卡片上的进度
     MACHINE_EXTRA_SOLD: { 0: 34, 1: 6 },
     MACHINE_EXTRA_MAX: { 0: 0, 1: 0 },
-    
-    // 3. 工作室销售进度（1对应W1，2对应W2）
     WORKSHOP_EXTRA_SOLD: { 1: 3, 2: 2 }, 
     WORKSHOP_EXTRA_MAX: { 1: 0, 2: 0 },
-    
     SHOW_TOTAL_MAX: false,
 
     miningContract:    "0x8B58dFa04cb6fA855263a6B60AA939D6e38eEcA9",
     workshopContract:  "0xff625a83ed6a527061020954E00F8c52Ee9BC1BD",
     dividendContract:  "0x06e57ef8f472736484b43a07393264d87114eb40",
     
-    // ✅ 修改为最新的托管合约
-    custodyContract:   "0x30Ee259feC5656144f99F7C98a8b620467158774",
+    // 🌟 修改为最新托管合约地址
+    custodyContract:   "0xfD904fe4A0C6C52Ed577068026DD22a630a1a2A7",
     
     referralRegistry:  "0x2EA13E42C0e05678D50d010Ca2D390742626EA9e",
     usdtToken:         "0x55d398326f99059fF775485246999027B3197955",
@@ -793,7 +790,7 @@ const CONFIG = {
     
     raycUsdtPair:      "0x5a01c7D5a8357e3602a0D82b013EF821f03C551B",
 
-    // ✅ 修改为最新的 RAYC-A 代币地址
+    // 🌟 修改为最新的 RAYC-A 地址
     raycaToken:        "0x0E80f1b2C6A997197bEc630b18fbe23D0F68B620",
     raycaUsdtPair:     "0x01251cfaB3438637b66A432508AF803e706458F5", 
 
@@ -814,26 +811,20 @@ const ABI = {
     pair: ["function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)","function token0() external view returns (address)","function token1() external view returns (address)"],
     referral: ["function getReferrer(address) view returns (address)"],
     custody: [
-        "function isVIP(address user) view returns (bool)", 
-        "function deposit(uint256 amount) external", 
-        "function withdrawCall() external",
-        "function custodies(address) view returns (uint256 totalAmount, uint256 miningPrincipal, uint256 callPrincipal, uint256 startTime, uint256 lastMiningClaimDay, uint256 miningClaimedDays, uint256 callCount, uint256 callClaimedCount, bool active)",
-        "function personalVolume(address) view returns (uint256)",
-        "function bigArea(address) view returns (uint256)",
-        "function smallArea(address) view returns (uint256)",
-        "function pendingReferralUSDT(address) view returns (uint256)",
-        "function pendingLevelUSDT(address) view returns (uint256)",
-        "function claimedReferralUSDT(address) view returns (uint256)",
-        "function claimedLevelUSDT(address) view returns (uint256)",
-        "function raycAPrice() view returns (uint256)",
-        "function miningDailyBps() view returns (uint256)",
+        "function isVIP(address user) view returns (bool)", "function deposit(uint256 amount) external", "function withdrawCall() external",
+        "function getCustodyBaseInfo(address) view returns (tuple(uint256 totalAmount, uint256 miningPrincipal, uint256 callPrincipal, uint256 startTime, uint256 lastMiningClaimDay, uint256 miningClaimedDays, uint256 callCount, uint256 callClaimedCount, bool active, bool vip))",
+        "function getCustodyPending(address) view returns (tuple(uint256 miningUSDT, uint256 callUSDT, uint256 referralUSDT, uint256 levelUSDT))",
+        "function pendingMiningRayc(address user) view returns (uint256)",
+        "function raycAPrice() view returns (uint256)", // 🌟 改为读取金本位价格
         "function callProfitBps() view returns (uint256)",
-        "function claimMining() external", 
-        "function claimCall() external", 
-        "function claimReferral() external", 
-        "function claimLevel() external",
-        "function overrideA(address) view returns (uint8)",
-        "function overrideC(address) view returns (uint8)"
+        "function miningDailyBps() view returns (uint256)",
+        "function pendingReferralUSDT(address) view returns (uint256)", // 👈 补上这行（待领代数奖）
+        "function pendingLevelUSDT(address) view returns (uint256)",    // 👈 补上这行（待领级别奖）
+        "function getBigSmallArea(address) view returns (uint256, uint256)", "function teamCount(address) view returns (uint256)", "function getALevel(address) view returns (uint8)", "function getUserLevel(address) view returns (uint8)",
+        "function claimedMiningUSDT(address) view returns (uint256)", "function claimedCallUSDT(address) view returns (uint256)", "function claimedReferralUSDT(address) view returns (uint256)", "function claimedLevelUSDT(address) view returns (uint256)",
+        "function claimMining() external", "function claimCall() external", "function claimReferral() external", "function claimLevel() external",
+        "function teamVolume(address) view returns (uint256)",
+        "function bigArea(address) view returns (uint256)"
     ],
     mining: [
         "function machineTypeCount() view returns (uint256)",
@@ -992,10 +983,8 @@ function refreshCurrentPage(){
 
 function initChart(){
     const container = document.getElementById('chart'); if(!container || chart) return;
-    // 修复 width 为 0 时报错导致钱包连不上的 Bug
-    const w = container.clientWidth || 320;
     chart = LightweightCharts.createChart(container, { 
-        width: w, height: 320, 
+        width: container.clientWidth || 320, height: 320, 
         layout: { background: { color: 'transparent' }, textColor: '#94a3b8' }, 
         grid: { vertLines: { color: 'rgba(79,172,254,0.06)' }, horzLines: { color: 'rgba(79,172,254,0.06)' } }, 
         timeScale: { borderColor: 'rgba(79,172,254,0.2)', timeVisible: true, secondsVisible: false },
@@ -1010,9 +999,8 @@ function initChart(){
 
 function initChartA(){
     const container = document.getElementById('chart-a'); if(!container || chartA) return;
-    const w = container.clientWidth || 320;
     chartA = LightweightCharts.createChart(container, { 
-        width: w, height: 320, 
+        width: container.clientWidth || 320, height: 320, 
         layout: { background: { color: 'transparent' }, textColor: '#94a3b8' }, 
         grid: { vertLines: { color: 'rgba(79,172,254,0.06)' }, horzLines: { color: 'rgba(79,172,254,0.06)' } }, 
         timeScale: { borderColor: 'rgba(79,172,254,0.2)', timeVisible: true, secondsVisible: false },
@@ -1177,7 +1165,6 @@ async function refreshHome(){
         document.getElementById('home-bnb').innerText = fmt(await provider.getBalance(userAddress));
     }catch(e){ console.error(e); }
 }
-
 async function refreshMining(){
     try{
         const isVip = await contracts.custody.isVIP(userAddress);
@@ -1642,30 +1629,9 @@ document.getElementById('ws-claim-subsidy-btn').onclick = async () => { try{ awa
 const wsCopyBtn = document.getElementById('ws-copy-btn');
 if (wsCopyBtn) wsCopyBtn.onclick = () => { const el = document.getElementById('ws-link'); if (el) copyText(el.innerText, 'ws-log'); };
 
-// === 提前定义所有常量，避免 TDZ 报错 ===
-const a1Threshold = ethers.utils.parseEther("100");
-const a2Threshold = ethers.utils.parseEther("500");
-const a3Threshold = ethers.utils.parseEther("1000");
-const levelConfigs = [[0, 0], [5000, 2000], [20000, 10000], [60000, 30000], [200000, 100000], [600000, 300000], [2000000, 1000000], [6000000, 3000000], [10000000, 5000000], [20000000, 10000000]];
-function calcALevel(pvWei) {
-    if (pvWei.gte(a3Threshold)) return 3;
-    if (pvWei.gte(a2Threshold)) return 2;
-    if (pvWei.gte(a1Threshold)) return 1;
-    return 0;
-}
-function calcCLevel(bigWei, smallWei) {
-    const big = parseFloat(ethers.utils.formatEther(bigWei));
-    const small = parseFloat(ethers.utils.formatEther(smallWei));
-    for (let i = 9; i >= 1; i--) {
-        if (big >= levelConfigs[i][0] && small >= levelConfigs[i][1]) return i;
-    }
-    return 0;
-}
-
-// ==================== 托管中心 (基于 V10 合约逻辑修复) ====================
 async function refreshCustody(){
     try{
-        const base = await contracts.custody.custodies(userAddress);
+        const base = await contracts.custody.getCustodyBaseInfo(userAddress);
         document.getElementById('cust-status').innerText = base.active ? I18n.t('cust_active') : I18n.t('cust_inactive');
         document.getElementById('cust-status').style.color = base.active ? '#10b981' : '#ef4444';
         
@@ -1679,47 +1645,47 @@ async function refreshCustody(){
         document.getElementById('cust-mining-p').innerText = fmt(base.miningPrincipal) + ' USDT';
         document.getElementById('cust-call-p').innerText = fmt(base.callPrincipal) + ' USDT';
 
-        const big = await contracts.custody.bigArea(userAddress);
-        const small = await contracts.custody.smallArea(userAddress);
-        const pv = await contracts.custody.personalVolume(userAddress);
-        
-        document.getElementById('cust-big-area').innerText = fmt(big) + ' USDT';
-        document.getElementById('cust-small-area').innerText = fmt(small) + ' USDT';
-        document.getElementById('cust-team-count').innerText = '--'; // V10 合约没有直接返回 teamCount，前端暂时留空
-
-        // 优先读取 override，如果没有则本地计算
-        let finalA = calcALevel(pv);
-        let finalC = calcCLevel(big, small);
-        
         try {
-            const ovA = await contracts.custody.overrideA(userAddress);
-            if (Number(ovA) > 0) finalA = Number(ovA);
-        } catch(e){}
+            const [bigWei, teamVolWei, teamCountVal] = await Promise.all([
+                contracts.custody.bigArea(userAddress),
+                contracts.custody.teamVolume(userAddress),
+                contracts.custody.teamCount(userAddress)
+            ]);
+            
+            const realSmallWei = teamVolWei.sub(bigWei);
+
+            document.getElementById('cust-big-area').innerText = fmt(bigWei) + ' USDT';
+            document.getElementById('cust-small-area').innerText = fmt(realSmallWei) + ' USDT';
+            document.getElementById('cust-team-count').innerText = teamCountVal.toString() + ' ' + I18n.t('people');
+        } catch (e) {
+            console.error('合约业绩读取失败', e);
+            const areas = await contracts.custody.getBigSmallArea(userAddress);
+            document.getElementById('cust-big-area').innerText = fmt(areas[0]) + ' USDT';
+            document.getElementById('cust-small-area').innerText = fmt(areas[1]) + ' USDT';
+            const teamCount = await contracts.custody.teamCount(userAddress);
+            document.getElementById('cust-team-count').innerText = teamCount.toString() + ' ' + I18n.t('people');
+        }
+
+        const aLvl = await contracts.custody.getALevel(userAddress);
+        const cLvl = await contracts.custody.getUserLevel(userAddress);
+        document.getElementById('cust-a-level').innerText = `A${aLvl}`;
+        document.getElementById('cust-c-level').innerText = `C${cLvl}`;
+
+        const raycAPriceWei = await contracts.custody.raycAPrice(); // 读取金本位价格
+        const raycAPrice = parseFloat(ethers.utils.formatEther(raycAPriceWei));
         
-        try {
-            const ovC = await contracts.custody.overrideC(userAddress);
-            if (Number(ovC) > 0) finalC = Number(ovC);
-        } catch(e){}
-
-        document.getElementById('cust-a-level').innerText = `A${finalA}`;
-        document.getElementById('cust-c-level').innerText = `C${finalC}`;
-
-        let pMineRaycA = 0;
         let pMineUSDT = 0;
+        let pMineRaycA = 0;
         
         if (base.active && base.miningPrincipal.gt(0)) {
             const currentBlock = await rpcProvider.getBlockNumber();
             const blockData = await rpcProvider.getBlock(currentBlock);
             const currentDay = Math.floor((blockData.timestamp - base.startTime.toNumber()) / 86400);
             const lastClaimDay = base.lastMiningClaimDay.toNumber();
-            
             if (currentDay > lastClaimDay) {
                 const days = currentDay - lastClaimDay;
                 const dailyBps = await contracts.custody.miningDailyBps();
                 pMineUSDT = parseFloat(ethers.utils.formatEther(base.miningPrincipal.mul(dailyBps).div(10000).mul(days)));
-                
-                const raycAPriceWei = await contracts.custody.raycAPrice();
-                const raycAPrice = parseFloat(ethers.utils.formatEther(raycAPriceWei));
                 if (raycAPrice > 0) {
                     pMineRaycA = pMineUSDT / raycAPrice;
                 }
@@ -1738,6 +1704,7 @@ async function refreshCustody(){
         const pRef = await contracts.custody.pendingReferralUSDT(userAddress);
         const pLvl = await contracts.custody.pendingLevelUSDT(userAddress);
 
+        // 🌟 修改：展示单位为 RAYC-A
         document.getElementById('cust-p-mining').innerText = pMineRaycA.toFixed(4) + ' RAYC-A';
         document.getElementById('cust-p-call').innerText = pCallUSDT.toFixed(4) + ' USDT';
         document.getElementById('cust-p-ref').innerText = fmt(pRef) + ' USDT';
@@ -1775,22 +1742,18 @@ document.getElementById('cust-withdraw-btn').onclick = async () => {
     catch(e) { log('cust-log', I18n.t('msg_failed') + (e.reason||e.message), true); alert(e.reason||e.message); }
 };
 
-// ✅ V10 合约内部已处理扣 RAYT，但需要前端先 approve RAYT
+// 🌟 修改：彻底删除前端扣 RAYT 逻辑，直接调用合约领取
 document.getElementById('cust-claim-mining-btn').onclick = async () => {
     try {
-        const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
-        if(al.lt(ethers.constants.MaxUint256.div(2))) { log('cust-log', I18n.t('msg_rayt_auth')); await (await contracts.rayt.approve(CONFIG.custodyContract, ethers.constants.MaxUint256)).wait(); }
         log('cust-log', I18n.t('msg_claiming_mining'));
         await (await contracts.custody.claimMining()).wait();
         log('cust-log', I18n.t('msg_claim_success'));
         refreshCustody();
-    } catch(e) { log('cust-log', I18n.t('msg_tax_insufficient') + (e.reason||e.message), true); alert(I18n.t('msg_tax_insufficient') + (e.reason||e.message)); }
+    } catch(e) { log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true); alert(I18n.t('msg_claim_failed') + (e.reason||e.message)); }
 };
 
 document.getElementById('cust-claim-call-btn').onclick = async () => {
     try {
-        const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
-        if(al.lt(ethers.constants.MaxUint256.div(2))) { log('cust-log', I18n.t('msg_rayt_auth')); await (await contracts.rayt.approve(CONFIG.custodyContract, ethers.constants.MaxUint256)).wait(); }
         log('cust-log', I18n.t('msg_claiming_call'));
         await (await contracts.custody.claimCall()).wait();
         log('cust-log', I18n.t('msg_claim_success'));
@@ -1798,10 +1761,9 @@ document.getElementById('cust-claim-call-btn').onclick = async () => {
     } catch(e) { log('cust-log', I18n.t('msg_claim_failed') + (e.reason||e.message), true); alert(I18n.t('msg_claim_failed') + (e.reason||e.message)); }
 };
 
+// 🌟 修改：直接领取代数奖
 document.getElementById('cust-claim-ref-btn').onclick = async () => {
     try {
-        const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
-        if(al.lt(ethers.constants.MaxUint256.div(2))) { log('cust-log', I18n.t('msg_rayt_auth')); await (await contracts.rayt.approve(CONFIG.custodyContract, ethers.constants.MaxUint256)).wait(); }
         log('cust-log', I18n.t('msg_processing'));
         await (await contracts.custody.claimReferral()).wait();
         log('cust-log', I18n.t('msg_claim_success'));
@@ -1812,10 +1774,9 @@ document.getElementById('cust-claim-ref-btn').onclick = async () => {
     }
 };
 
+// 🌟 修改：直接领取级别奖
 document.getElementById('cust-claim-level-btn').onclick = async () => {
     try {
-        const al = await contracts.rayt.allowance(userAddress, CONFIG.custodyContract);
-        if(al.lt(ethers.constants.MaxUint256.div(2))) { log('cust-log', I18n.t('msg_rayt_auth')); await (await contracts.rayt.approve(CONFIG.custodyContract, ethers.constants.MaxUint256)).wait(); }
         log('cust-log', I18n.t('msg_processing'));
         await (await contracts.custody.claimLevel()).wait();
         log('cust-log', I18n.t('msg_claim_success'));
@@ -1825,7 +1786,6 @@ document.getElementById('cust-claim-level-btn').onclick = async () => {
         alert(I18n.t('msg_claim_failed') + (e.reason||e.message));
     }
 };
-// ==================== 托管中心结束 ====================
 
 async function refreshWallet(){
     try{
