@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAYC-A 完整代币控制台</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        :root { --bg: #0b0f19; --card: #141b2b; --txt: #e2e8f0; --muted: #94a3b8; --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+        body { background: var(--bg); color: var(--txt); padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 20px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; background: var(--card); padding: 15px 25px; border-radius: 12px; border: 1px solid #1e293b; }
+        .header h1 { font-size: 20px; color: #fcd34d; }
+        .wallet-btn { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .wallet-info { font-family: monospace; background: #0f172a; padding: 8px 12px; border-radius: 8px; color: var(--success); border: 1px solid #1e293b; display: none; }
+
+        .grid-data { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+        .data-card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 8px; }
+        .data-card .label { color: var(--muted); font-size: 13px; }
+        .data-card .value { font-size: 18px; font-weight: bold; color: #60a5fa; word-break: break-all;}
+
+        .panel { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid #1e293b; margin-bottom: 15px; display: none;}
+        .panel h3 { color: #fcd34d; margin-bottom: 15px; border-bottom: 1px solid #1e293b; padding-bottom: 10px; font-size: 16px; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-end; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px; }
+        label { color: var(--muted); font-size: 13px; }
+        input, select { background: #0f172a; border: 1px solid #334155; color: white; padding: 12px; border-radius: 8px; font-size: 14px; outline: none; width: 100%;}
+        input:focus, select:focus { border-color: var(--primary); }
+        button { padding: 12px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; color: white; font-size: 14px; white-space: nowrap;}
+        
+        .btn-green { background: var(--success); }
+        .btn-red { background: var(--danger); }
+        .btn-blue { background: var(--primary); }
+        .btn-orange { background: var(--warning); color: #000; }
+
+        /* 弹窗样式 */
+        #toast { position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; font-weight: bold; z-index: 9999; display: none; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); line-height: 1.5; }
+        .t-success { background: #10b981; color: #fff; }
+        .t-error { background: #ef4444; color: #fff; }
+        .t-warn { background: #f59e0b; color: #000; }
+    </style>
+</head>
+<body>
+<div id="toast"></div>
+
+<div class="container">
+    <div class="header">
+        <h1>🛡️ RAYC-A 完整控制台</h1>
+        <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">连接钱包</button>
+        <div class="wallet-info" id="walletInfo">未连接</div>
+    </div>
+
+    <div class="grid-data">
+        <div class="data-card">
+            <div class="label">代币 Owner (需用此钱包操作)</div>
+            <div class="value" id="dataOwner" style="font-size: 13px; color: var(--muted);">加载中...</div>
+        </div>
+        <div class="data-card">
+            <div class="label">当前税收接收地址</div>
+            <div class="value" id="dataTaxReceiver" style="font-size: 13px; color: #facc15;">加载中...</div>
+        </div>
+        <div class="data-card">
+            <div class="label">交易状态 / 当前买/卖税</div>
+            <div class="value" id="dataTrading">--</div>
+        </div>
+    </div>
+
+    <div class="panel" id="adminPanel">
+        <!-- 1. 交易控制 -->
+        <h3>🚀 交易控制</h3>
+        <div class="form-row">
+            <button id="btnEnableTrading" class="btn-red" onclick="enableTrading()" style="width:100%">开启交易 (不可逆)</button>
+        </div>
+
+        <!-- 2. 基础税率 -->
+        <h3 style="margin-top:20px;">💱 基础税率 (%)</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label>买税 (填 3 代表 3%)</label>
+                <input type="number" id="inputBuyTax" step="0.1">
+            </div>
+            <div class="form-group">
+                <label>卖税 (填 5 代表 5%)</label>
+                <input type="number" id="inputSellTax" step="0.1">
+            </div>
+            <button class="btn-blue" onclick="updateTax()">保存基础税</button>
+        </div>
+
+        <!-- 3. 大额卖出惩罚 -->
+        <h3 style="margin-top:20px;">🐋 大额卖出惩罚 (防砸盘)</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label>惩罚税率 (%) <span style="color:#f59e0b">例如填 30</span></label>
+                <input type="number" id="inputHighTax" step="0.1">
+            </div>
+            <div class="form-group">
+                <label>触发阈值 (枚) <span style="color:#f59e0b">例如填 50000</span></label>
+                <input type="number" id="inputTaxThreshold">
+            </div>
+            <button class="btn-orange" onclick="updateDynamicTax()">保存大额惩罚</button>
+        </div>
+
+        <!-- 4. 限流控制 -->
+        <h3 style="margin-top:20px;">🎛️ 防巨鲸限流</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label>单笔最大交易 (枚)</label>
+                <input type="number" id="inputMaxTx">
+            </div>
+            <div class="form-group">
+                <label>钱包最大持仓 (枚)</label>
+                <input type="number" id="inputMaxWallet">
+            </div>
+            <button class="btn-blue" onclick="updateLimits()">保存限额</button>
+        </div>
+        <div class="form-row">
+            <button class="btn-green" onclick="toggleLimits(false)">关闭限流</button>
+            <button class="btn-orange" onclick="toggleLimits(true)">开启限流</button>
+        </div>
+
+        <!-- 5. 税收地址管理 -->
+        <h3 style="margin-top:20px;">💰 税收地址修改</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label>新的税收接收地址 (建议填多签钱包)</label>
+                <input type="text" id="inputTaxReceiver" placeholder="0x...">
+            </div>
+            <button class="btn-blue" onclick="updateTaxReceiver()">保存税包地址</button>
+        </div>
+
+        <!-- 6. 黑白名单管理 -->
+        <h3 style="margin-top:20px;">📋 黑名单与免税白名单</h3>
+        <div class="form-row">
+            <div class="form-group" style="flex: 2;">
+                <label>钱包地址</label>
+                <input type="text" id="inputManageAddr" placeholder="0x...">
+            </div>
+            <div class="form-group" style="flex: 2;">
+                <label>选择操作</label>
+                <select id="selectManageAction">
+                    <option value="blacklist_true">🚫 加入黑名单 (禁止交易)</option>
+                    <option value="blacklist_false">✅ 解除黑名单</option>
+                    <option value="exclude_true">🛡️ 加入免税白名单</option>
+                    <option value="exclude_false">❌ 移出免税白名单</option>
+                </select>
+            </div>
+            <button class="btn-red" onclick="manageAddress()" style="height: 42px;">执行操作</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const CONTRACT_ADDRESS = "0x0E80f1b2C6A997197bEc630b18fbe23D0F68B620";
+
+    const ABI = [
+        "function owner() view returns (address)",
+        "function taxReceiver() view returns (address)",
+        "function tradingEnabled() view returns (bool)",
+        "function buyTaxBps() view returns (uint256)",
+        "function sellTaxBps() view returns (uint256)",
+        "function highSellTaxBps() view returns (uint256)",
+        "function sellTaxThreshold() view returns (uint256)",
+        "function maxTxAmount() view returns (uint256)",
+        "function maxWalletAmount() view returns (uint256)",
+        
+        "function enableTrading()",
+        "function setTax(uint256 _buyTax, uint256 _sellTax)",
+        "function setDynamicTax(uint256 _highSellTax, uint256 _threshold)",
+        "function setLimits(uint256 _maxTx, uint256 _maxWallet)",
+        "function toggleLimits(bool _enabled)",
+        "function setTaxReceiver(address _receiver)",
+        "function setBlacklist(address _account, bool _status)",
+        "function setExcludedFromFee(address _account, bool _status)"
+    ];
+
+    let provider, signer, userAddress, contract;
+    let globalAdminAddr = "";
+
+    function showToast(msg, type = 't-success') {
+        const t = document.getElementById('toast');
+        t.className = type;
+        t.innerText = msg;
+        t.style.display = 'block';
+        setTimeout(() => { t.style.display = 'none'; }, 6000);
+    }
+
+    async function connectWallet() {
+        if (!window.ethereum) return showToast("请安装钱包插件", "t-error");
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            userAddress = accounts[0];
+            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            signer = provider.getSigner();
+
+            const net = await provider.getNetwork();
+            if (net.chainId !== 56) return showToast("⚠️ 请切换到 BSC 主网！", "t-error");
+
+            contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+            document.getElementById("walletInfo").innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+            document.getElementById("walletInfo").style.display = "block";
+            document.getElementById("connectBtn").style.display = "none";
+            
+            await checkOwner();
+        } catch(e) {
+            showToast("连接失败: " + e.message, "t-error");
+        }
+    }
+
+    async function checkOwner() {
+        try {
+            globalAdminAddr = await contract.owner();
+            document.getElementById("dataOwner").innerText = globalAdminAddr;
+            
+            if (globalAdminAddr.toLowerCase() !== userAddress.toLowerCase()) {
+                document.getElementById("dataOwner").style.color = "#ef4444";
+                showToast(`⚠️ 钱包不匹配！\n请切换为: ${globalAdminAddr}`, "t-warn");
+            } else {
+                document.getElementById("dataOwner").style.color = "#10b981";
+                document.getElementById("adminPanel").style.display = "block";
+                await loadData();
+                showToast("✅ 权限验证通过", "t-success");
+            }
+        } catch(e) {
+            showToast("读取合约失败: " + e.message, "t-error");
+        }
+    }
+
+    async function loadData() {
+        try {
+            const trading = await contract.tradingEnabled();
+            const buyTax = await contract.buyTaxBps();
+            const sellTax = await contract.sellTaxBps();
+            const highTax = await contract.highSellTaxBps();
+            const threshold = await contract.sellTaxThreshold();
+            const maxTx = await contract.maxTxAmount();
+            const maxWallet = await contract.maxWalletAmount();
+            const receiver = await contract.taxReceiver();
+
+            // 状态渲染
+            document.getElementById("dataTaxReceiver").innerText = receiver;
+            document.getElementById("dataTrading").innerHTML = trading 
+                ? `<span style="color:#10b981">已开启</span> / ${Number(buyTax)/100}% - ${Number(sellTax)/100}%`
+                : `<span style="color:#ef4444">未开启</span> / ${Number(buyTax)/100}% - ${Number(sellTax)/100}%`;
+            
+            if(trading) {
+                const btn = document.getElementById("btnEnableTrading");
+                btn.disabled = true;
+                btn.innerText = "交易已开启";
+            }
+            
+            // 表单回填
+            document.getElementById("inputBuyTax").value = (Number(buyTax) / 100).toString();
+            document.getElementById("inputSellTax").value = (Number(sellTax) / 100).toString();
+            document.getElementById("inputHighTax").value = (Number(highTax) / 100).toString();
+            document.getElementById("inputTaxThreshold").value = parseFloat(ethers.utils.formatUnits(threshold, 18)).toString();
+            document.getElementById("inputMaxTx").value = parseFloat(ethers.utils.formatUnits(maxTx, 18)).toString();
+            document.getElementById("inputMaxWallet").value = parseFloat(ethers.utils.formatUnits(maxWallet, 18)).toString();
+            document.getElementById("inputTaxReceiver").value = receiver;
+
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    async function sendTx(promiseFunc) {
+        if (!signer) return showToast("请先连接钱包", "t-error");
+        if (globalAdminAddr.toLowerCase() !== userAddress.toLowerCase()) return showToast("你不是 Owner！", "t-error");
+        
+        try {
+            showToast("⏳ 请在钱包中确认交易...", "t-warn");
+            const tx = await promiseFunc();
+            showToast("⏳ 等待链上确认...", "t-warn");
+            await tx.wait();
+            showToast("✅ 修改成功！", "t-success");
+            await loadData(); 
+        } catch(e) {
+            console.error(e);
+            let errMsg = e.reason || (e.data && e.data.message) || e.message || "交易失败";
+            showToast("❌ 失败: " + errMsg, "t-error");
+        }
+    }
+
+    // --- 核心操作 ---
+
+    function enableTrading() {
+        if(!confirm("⚠️ 开启后无法关闭，确定吗？")) return;
+        sendTx(() => contract.enableTrading());
+    }
+
+    function updateTax() {
+        const b = parseFloat(document.getElementById("inputBuyTax").value);
+        const s = parseFloat(document.getElementById("inputSellTax").value);
+        if(isNaN(b) || isNaN(s)) return showToast("请输入有效数字", "t-error");
+        sendTx(() => contract.setTax(Math.round(b * 100), Math.round(s * 100)));
+    }
+
+    function updateDynamicTax() {
+        const h = parseFloat(document.getElementById("inputHighTax").value);
+        const t = document.getElementById("inputTaxThreshold").value;
+        if(isNaN(h) || !t) return showToast("请输入大额税率和阈值", "t-error");
+        sendTx(() => contract.setDynamicTax(Math.round(h * 100), ethers.utils.parseUnits(t, 18)));
+    }
+
+    function updateLimits() {
+        const tx = document.getElementById("inputMaxTx").value;
+        const w = document.getElementById("inputMaxWallet").value;
+        if(!tx || !w) return showToast("请填写有效数值", "t-error");
+        sendTx(() => contract.setLimits(ethers.utils.parseUnits(tx, 18), ethers.utils.parseUnits(w, 18)));
+    }
+
+    function toggleLimits(enable) {
+        sendTx(() => contract.toggleLimits(enable));
+    }
+
+    function updateTaxReceiver() {
+        const addr = document.getElementById("inputTaxReceiver").value.trim();
+        if(!ethers.utils.isAddress(addr)) return showToast("❌ 地址格式错误", "t-error");
+        if(!confirm(`确定将税收地址改为：\n${addr} 吗？`)) return;
+        sendTx(() => contract.setTaxReceiver(addr));
+    }
+
+    function manageAddress() {
+        const addr = document.getElementById("inputManageAddr").value.trim();
+        const action = document.getElementById("selectManageAction").value;
+        
+        if(!ethers.utils.isAddress(addr)) return showToast("❌ 地址格式错误", "t-error");
+        
+        if (action === "blacklist_true") {
+            if(!confirm(`确定要拉黑该地址吗？拉黑后将无法买卖。\n${addr}`)) return;
+            sendTx(() => contract.setBlacklist(addr, true));
+        } else if (action === "blacklist_false") {
+            sendTx(() => contract.setBlacklist(addr, false));
+        } else if (action === "exclude_true") {
+            if(!confirm(`确定加入免税白名单吗？该地址交易将不收税。\n${addr}`)) return;
+            sendTx(() => contract.setExcludedFromFee(addr, true));
+        } else if (action === "exclude_false") {
+            sendTx(() => contract.setExcludedFromFee(addr, false));
+        }
+    }
+</script>
+</body>
+</html>
