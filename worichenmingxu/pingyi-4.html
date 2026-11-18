@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>托管数据平移控制台 (单地址修正版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        :root { --bg: #0b0f19; --card: #141b2b; --txt: #e2e8f0; --muted: #94a3b8; --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+        body { background: var(--bg); color: var(--txt); padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 20px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; background: var(--card); padding: 20px 25px; border-radius: 12px; border: 1px solid #1e293b; }
+        .header h1 { font-size: 20px; color: #fcd34d; }
+        .wallet-btn { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .wallet-btn:disabled { background: #475569; cursor: not-allowed; }
+        .wallet-info { font-family: monospace; background: #0f172a; padding: 8px 12px; border-radius: 8px; color: var(--success); border: 1px solid #1e293b; display: none; font-size: 14px; }
+
+        .panel { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid #1e293b; }
+        .panel h3 { color: #60a5fa; margin-bottom: 15px; font-size: 16px; border-bottom: 1px solid #1e293b; padding-bottom: 10px; }
+        
+        .btn-action { width: 100%; padding: 15px; border-radius: 8px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; color: white; background: var(--success); margin-bottom: 15px; transition: 0.2s;}
+        .btn-action:hover { filter: brightness(1.1); }
+        .btn-action:disabled { background: #475569; cursor: not-allowed; filter: none; }
+
+        .btn-danger { background: var(--danger); }
+
+        .log-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 15px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 13px; color: #10b981; line-height: 1.6;}
+        .log-error { color: #ef4444; }
+        .log-warn { color: #f59e0b; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div>
+            <h1>📦 托管数据平移控制台</h1>
+            <p style="color:var(--muted); font-size:13px; margin-top:5px;">批量平移数据 / 单地址平移</p>
+        </div>
+        <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">连接部署钱包</button>
+        <div class="wallet-info" id="walletInfo">未连接</div>
+    </div>
+
+    <!-- 批量平移面板 -->
+    <div class="panel">
+        <h3>📊 批量迁移配置</h3>
+        <div style="display:flex; justify-content:space-between; margin-bottom: 15px; color:var(--muted); font-size:14px;">
+            <span>旧合约: <b style="color:#fff;">0xaB79...F43</b></span>
+            <span>新合约: <b style="color:#fff;">0xfD90...a2A7</b></span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom: 20px; color:var(--muted); font-size:14px;">
+            <span>总用户数: <b id="totalCount" style="color:#fcd34d;">--</b></span>
+            <span>每批处理: <b style="color:#fcd34d;">10 人</b></span>
+        </div>
+
+        <button class="btn-action" id="startBtn" onclick="startMigration()" disabled>🚀 一键开始全自动平移</button>
+    </div>
+
+    <!-- 单地址平移面板 -->
+    <div class="panel" style="border-color: #3b82f6;">
+        <h3 style="color: #3b82f6;">🎯 单地址平移 (补漏)</h3>
+        <div style="display:flex; gap:10px; margin-bottom: 15px;">
+            <input type="text" id="singleAddress" placeholder="输入要平移的地址 0x..." style="flex:1; padding:10px; border-radius:8px; background:#0f172a; border:1px solid #334155; color:white;">
+            <button class="wallet-btn" onclick="migrateSingleAddress()" style="padding:10px 20px;">单地址平移</button>
+        </div>
+        <div style="font-size: 12px; color: var(--warning);">
+            ⚠️ 注意：如果该地址已经在合约里激活（active = true），单地址平移会直接跳过。仅适用于批量漏掉的人。
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>💻 运行日志</h3>
+        <div class="log-box" id="logBox">等待连接钱包...</div>
+    </div>
+</div>
+
+<script>
+    // 合约地址配置
+    const OLD_CONTRACT = "0xaB7920588bCB195C9F714FDbaBe31D039c52DF43";
+    const NEW_CONTRACT = "0xfD904fe4A0C6C52Ed577068026DD22a630a1a2A7"; 
+    const RPC = "https://bsc-dataseed.bnbchain.org/";
+
+    const OLD_ABI = [
+        "function getCustodiansCount() view returns (uint256)",
+        "function getCustodiansPaginated(uint256 from, uint256 to) view returns (address[])",
+        "function getCustodyBaseInfo(address user) view returns (tuple(uint256 totalAmount, uint256 miningPrincipal, uint256 callPrincipal, uint256 startTime, uint256 lastMiningClaimDay, uint256 miningClaimedDays, uint256 callCount, uint256 callClaimedCount, bool active, bool vip))",
+        "function bigArea(address) view returns (uint256)",
+        "function smallArea(address) view returns (uint256)"
+    ];
+
+    const NEW_ABI = [
+        "function batchMigrateBase(address[] calldata users, uint256[] calldata amounts, uint256[] calldata daysMined, uint256[] calldata callCounts, uint256[] calldata callClaimedCounts) external",
+        "function batchMigratePerformance(address[] calldata users, uint256[] calldata bigAreas, uint256[] calldata smallAreas) external",
+        "function batchMigratePendingRewards(address[] calldata users, uint256[] calldata pendingRefs, uint256[] calldata pendingLvls) external",
+        "function custodies(address) view returns (uint256 totalAmount, uint256 miningPrincipal, uint256 callPrincipal, uint256 startTime, uint256 lastMiningClaimDay, uint256 miningClaimedDays, uint256 callCount, uint256 callClaimedCount, bool active)"
+    ];
+
+    let provider, signer, userAddress;
+    let oldContract, newContract, newContractReadOnly;
+    const logBox = document.getElementById('logBox');
+
+    function log(msg, type = 'normal') {
+        const div = document.createElement('div');
+        if(type === 'error') div.className = 'log-error';
+        else if(type === 'warn') div.className = 'log-warn';
+        div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logBox.appendChild(div);
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    async function connectWallet() {
+        if (!window.ethereum) return alert("请安装 MetaMask 或 TP 钱包！");
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            userAddress = accounts[0];
+            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            signer = provider.getSigner();
+
+            const net = await provider.getNetwork();
+            if (net.chainId !== 56) return alert("⚠️ 请切换到 BSC 主网！");
+
+            oldContract = new ethers.Contract(OLD_CONTRACT, OLD_ABI, provider); 
+            newContract = new ethers.Contract(NEW_CONTRACT, NEW_ABI, signer);   
+            newContractReadOnly = new ethers.Contract(NEW_CONTRACT, NEW_ABI, new ethers.providers.JsonRpcProvider(RPC));
+
+            document.getElementById("walletInfo").innerText = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+            document.getElementById("walletInfo").style.display = "block";
+            document.getElementById("connectBtn").style.display = "none";
+
+            log("✅ 钱包已连接: " + userAddress);
+            
+            const count = (await oldContract.getCustodiansCount()).toNumber();
+            document.getElementById("totalCount").innerText = count;
+            log(`📊 已检测到旧合约共有 ${count} 个托管用户。`, 'warn');
+
+            if(count > 0) {
+                document.getElementById("startBtn").disabled = false;
+                log("👉 请点击上方“一键开始全自动平移”按钮开始操作。");
+            }
+
+        } catch(e) {
+            log("❌ 连接失败: " + e.message, 'error');
+        }
+    }
+
+    // 🚀 批量平移
+    async function startMigration() {
+        const btn = document.getElementById('startBtn');
+        btn.disabled = true;
+
+        const gasParams = { gasPrice: ethers.utils.parseUnits("3", "gwei"), gasLimit: 3000000 };
+
+        try {
+            const count = (await oldContract.getCustodiansCount()).toNumber();
+            const pageSize = 10;
+
+            log(`🚀 开始执行平移，共 ${count} 人，每批 ${pageSize} 人...`);
+
+            for (let i = 0; i < count; i += pageSize) {
+                const to = Math.min(i + pageSize, count);
+                log(`⏳ 正在处理第 ${i + 1} - ${to} 人 (共 ${count} 人)...`);
+
+                const batchAddrs = await oldContract.getCustodiansPaginated(i, to);
+                
+                let users = [], amounts = [], days = [], callCounts = [], callClaimed = [];
+                let bigAreas = [], smallAreas = [];
+                let pendingRefs = [], pendingLvls = [];
+
+                for (let addr of batchAddrs) {
+                    const info = await oldContract.getCustodyBaseInfo(addr);
+                    const big = await oldContract.bigArea(addr);
+                    const small = await oldContract.smallArea(addr);
+
+                    users.push(addr);
+                    amounts.push(info.totalAmount.toString());
+                    days.push(info.miningClaimedDays.toString());
+                    callCounts.push(info.callCount.toString());
+                    callClaimed.push(info.callClaimedCount.toString());
+                    bigAreas.push(big.toString());
+                    smallAreas.push(small.toString());
+                    
+                    pendingRefs.push("0");
+                    pendingLvls.push("0");
+                }
+
+                log(`   👉 拉取数据完成，正在请求钱包签名【基础平移】...`, 'warn');
+                
+                const tx1 = await newContract.batchMigrateBase(users, amounts, days, callCounts, callClaimed, gasParams);
+                await tx1.wait();
+                log(`   ✅ 第 ${i + 1} - ${to} 人基础数据平移成功！`);
+
+                log(`   👉 正在请求钱包签名【业绩平移】...`, 'warn');
+                const tx2 = await newContract.batchMigratePerformance(users, bigAreas, smallAreas, gasParams);
+                await tx2.wait();
+                log(`   ✅ 第 ${i + 1} - ${to} 人业绩平移成功！`);
+
+                log(`   👉 正在请求钱包签名【奖励平移】...`, 'warn');
+                const tx3 = await newContract.batchMigratePendingRewards(users, pendingRefs, pendingLvls, gasParams);
+                await tx3.wait();
+                log(`   ✅ 第 ${i + 1} - ${to} 人奖励平移成功！`);
+
+                await new Promise(r => setTimeout(r, 1000));
+            }
+
+            log("🎉🎉🎉 恭喜！全部数据平移圆满完成！");
+
+        } catch(e) {
+            console.error(e);
+            log(`❌ 平移发生错误中断: ${e.reason || e.message}`, 'error');
+            btn.disabled = false;
+        }
+    }
+
+    // 🎯 单地址平移
+    async function migrateSingleAddress() {
+        const targetAddr = document.getElementById('singleAddress').value.trim();
+        if(!ethers.utils.isAddress(targetAddr)) return alert("请输入有效的地址！");
+
+        try {
+            const status = await newContractReadOnly.custodies(targetAddr);
+            if(status.active) {
+                return alert(`⚠️ 该地址在新合约中已经是“托管中”状态，无法再次平移覆盖。\n\n如果要强行清空，请使用管理员强制重置。`);
+            }
+
+            log(`⏳ 正在获取旧合约地址 ${targetAddr} 的数据...`);
+            const info = await oldContract.getCustodyBaseInfo(targetAddr);
+            const big = await oldContract.bigArea(targetAddr);
+            const small = await oldContract.smallArea(targetAddr);
+
+            const gasParams = { gasPrice: ethers.utils.parseUnits("3", "gwei"), gasLimit: 3000000 };
+
+            log(`   👉 请求签名【基础平移】...`);
+            const tx1 = await newContract.batchMigrateBase([targetAddr], [info.totalAmount.toString()], [info.miningClaimedDays.toString()], [info.callCount.toString()], [info.callClaimedCount.toString()], gasParams);
+            await tx1.wait();
+            log(`   ✅ 基础数据成功！`);
+
+            log(`   👉 请求签名【业绩平移】...`);
+            const tx2 = await newContract.batchMigratePerformance([targetAddr], [big.toString()], [small.toString()], gasParams);
+            await tx2.wait();
+            log(`   ✅ 业绩数据成功！`);
+
+            log(`   👉 请求签名【奖励平移】...`);
+            const tx3 = await newContract.batchMigratePendingRewards([targetAddr], ["0"], ["0"], gasParams);
+            await tx3.wait();
+            log(`   ✅ 奖励数据成功！`);
+
+            log(`🎉 单地址 ${targetAddr} 平移完成！`);
+            alert("✅ 平移成功！");
+
+        } catch(e) {
+            console.error(e);
+            log(`❌ 单地址平移失败: ${e.reason || e.message}`, 'error');
+            alert("平移失败: " + (e.reason || e.message));
+        }
+    }
+</script>
+</body>
+</html>
