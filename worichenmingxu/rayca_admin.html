@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAYC-A 完整代币控制台</title>
+    <title>RAYC-A 完整代币控制台 (V2)</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
         :root { --bg: #0b0f19; --card: #141b2b; --txt: #e2e8f0; --muted: #94a3b8; --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
@@ -47,7 +47,7 @@
 
 <div class="container">
     <div class="header">
-        <h1>🛡️ RAYC-A 完整控制台</h1>
+        <h1>🛡️ RAYC-A 完整控制台 (V2)</h1>
         <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">连接钱包</button>
         <div class="wallet-info" id="walletInfo">未连接</div>
     </div>
@@ -59,7 +59,7 @@
         </div>
         <div class="data-card">
             <div class="label">当前税收接收地址</div>
-            <div class="value" id="dataTaxReceiver" style="font-size: 13px; color: #facc15;">加载中...</div>
+            <div class="value" id="dataTaxWallet" style="font-size: 13px; color: #facc15;">加载中...</div>
         </div>
         <div class="data-card">
             <div class="label">交易状态 / 当前买/卖税</div>
@@ -92,7 +92,7 @@
         <h3 style="margin-top:20px;">🐋 大额卖出惩罚 (防砸盘)</h3>
         <div class="form-row">
             <div class="form-group">
-                <label>惩罚税率 (%) <span style="color:#f59e0b">例如填 30</span></label>
+                <label>惩罚税率 (%) <span style="color:#f59e0b">例如填 15</span></label>
                 <input type="number" id="inputHighTax" step="0.1">
             </div>
             <div class="form-group">
@@ -120,14 +120,24 @@
             <button class="btn-orange" onclick="toggleLimits(true)">开启限流</button>
         </div>
 
-        <!-- 5. 税收地址管理 -->
-        <h3 style="margin-top:20px;">💰 税收地址修改</h3>
+        <!-- 5. 税收与分润地址管理 (新合约的核心修改点) -->
+        <h3 style="margin-top:20px;">💰 生态钱包地址修改</h3>
         <div class="form-row">
             <div class="form-group">
-                <label>新的税收接收地址 (建议填多签钱包)</label>
-                <input type="text" id="inputTaxReceiver" placeholder="0x...">
+                <label>税收接收地址 (taxWallet)</label>
+                <input type="text" id="inputTaxWallet" placeholder="0x...">
             </div>
-            <button class="btn-blue" onclick="updateTaxReceiver()">保存税包地址</button>
+            <div class="form-group">
+                <label>分红接收地址 (dividendWallet)</label>
+                <input type="text" id="inputDividendWallet" placeholder="0x...">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>营销接收地址 (marketingWallet)</label>
+                <input type="text" id="inputMarketingWallet" placeholder="0x...">
+            </div>
+            <button class="btn-blue" onclick="updateWallets()">保存三个地址</button>
         </div>
 
         <!-- 6. 黑白名单管理 -->
@@ -156,7 +166,6 @@
 
     const ABI = [
         "function owner() view returns (address)",
-        "function taxReceiver() view returns (address)",
         "function tradingEnabled() view returns (bool)",
         "function buyTaxBps() view returns (uint256)",
         "function sellTaxBps() view returns (uint256)",
@@ -164,15 +173,20 @@
         "function sellTaxThreshold() view returns (uint256)",
         "function maxTxAmount() view returns (uint256)",
         "function maxWalletAmount() view returns (uint256)",
+        "function taxWallet() view returns (address)",
+        "function dividendWallet() view returns (address)",
+        "function marketingWallet() view returns (address)",
+        "function limitsInEffect() view returns (bool)",
         
         "function enableTrading()",
         "function setTax(uint256 _buyTax, uint256 _sellTax)",
         "function setDynamicTax(uint256 _highSellTax, uint256 _threshold)",
         "function setLimits(uint256 _maxTx, uint256 _maxWallet)",
         "function toggleLimits(bool _enabled)",
-        "function setTaxReceiver(address _receiver)",
+        "function setWallets(address _tax, address _div, address _mkt)",
         "function setBlacklist(address _account, bool _status)",
-        "function setExcludedFromFee(address _account, bool _status)"
+        "function setExcludedFromFee(address _account, bool _status)",
+        "function createPair(address _factory)"
     ];
 
     let provider, signer, userAddress, contract;
@@ -236,10 +250,14 @@
             const threshold = await contract.sellTaxThreshold();
             const maxTx = await contract.maxTxAmount();
             const maxWallet = await contract.maxWalletAmount();
-            const receiver = await contract.taxReceiver();
+            
+            // 读取三个钱包地址
+            const taxW = await contract.taxWallet();
+            const divW = await contract.dividendWallet();
+            const mktW = await contract.marketingWallet();
 
             // 状态渲染
-            document.getElementById("dataTaxReceiver").innerText = receiver;
+            document.getElementById("dataTaxWallet").innerText = taxW;
             document.getElementById("dataTrading").innerHTML = trading 
                 ? `<span style="color:#10b981">已开启</span> / ${Number(buyTax)/100}% - ${Number(sellTax)/100}%`
                 : `<span style="color:#ef4444">未开启</span> / ${Number(buyTax)/100}% - ${Number(sellTax)/100}%`;
@@ -257,7 +275,10 @@
             document.getElementById("inputTaxThreshold").value = parseFloat(ethers.utils.formatUnits(threshold, 18)).toString();
             document.getElementById("inputMaxTx").value = parseFloat(ethers.utils.formatUnits(maxTx, 18)).toString();
             document.getElementById("inputMaxWallet").value = parseFloat(ethers.utils.formatUnits(maxWallet, 18)).toString();
-            document.getElementById("inputTaxReceiver").value = receiver;
+            
+            document.getElementById("inputTaxWallet").value = taxW;
+            document.getElementById("inputDividendWallet").value = divW;
+            document.getElementById("inputMarketingWallet").value = mktW;
 
         } catch(e) {
             console.error(e);
@@ -314,11 +335,18 @@
         sendTx(() => contract.toggleLimits(enable));
     }
 
-    function updateTaxReceiver() {
-        const addr = document.getElementById("inputTaxReceiver").value.trim();
-        if(!ethers.utils.isAddress(addr)) return showToast("❌ 地址格式错误", "t-error");
-        if(!confirm(`确定将税收地址改为：\n${addr} 吗？`)) return;
-        sendTx(() => contract.setTaxReceiver(addr));
+    // 🌟 这里修改成了新的三地址绑定逻辑
+    function updateWallets() {
+        const tax = document.getElementById("inputTaxWallet").value.trim();
+        const div = document.getElementById("inputDividendWallet").value.trim();
+        const mkt = document.getElementById("inputMarketingWallet").value.trim();
+        
+        if(!ethers.utils.isAddress(tax) || !ethers.utils.isAddress(div) || !ethers.utils.isAddress(mkt)) {
+            return showToast("❌ 三个地址格式必须都正确", "t-error");
+        }
+        if(!confirm(`确定要修改三个收款地址吗？\n税收: ${tax}\n分红: ${div}\n营销: ${mkt}`)) return;
+        
+        sendTx(() => contract.setWallets(tax, div, mkt));
     }
 
     function manageAddress() {
