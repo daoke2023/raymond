@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAYC-A 完整代币控制台 (V2)</title>
+    <title>RAYC-A 完整代币控制台 (V3 转移版)</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
         :root { --bg: #0b0f19; --card: #141b2b; --txt: #e2e8f0; --muted: #94a3b8; --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
@@ -47,14 +47,14 @@
 
 <div class="container">
     <div class="header">
-        <h1>🛡️ RAYC-A 完整控制台 (V2)</h1>
+        <h1>🛡️ RAYC-A 完整控制台 (V3)</h1>
         <button class="wallet-btn" id="connectBtn" onclick="connectWallet()">连接钱包</button>
         <div class="wallet-info" id="walletInfo">未连接</div>
     </div>
 
     <div class="grid-data">
         <div class="data-card">
-            <div class="label">代币 Owner (需用此钱包操作)</div>
+            <div class="label">代币 Owner (当前最高权限)</div>
             <div class="value" id="dataOwner" style="font-size: 13px; color: var(--muted);">加载中...</div>
         </div>
         <div class="data-card">
@@ -120,7 +120,7 @@
             <button class="btn-orange" onclick="toggleLimits(true)">开启限流</button>
         </div>
 
-        <!-- 5. 税收与分润地址管理 (新合约的核心修改点) -->
+        <!-- 5. 税收与分润地址管理 -->
         <h3 style="margin-top:20px;">💰 生态钱包地址修改</h3>
         <div class="form-row">
             <div class="form-group">
@@ -158,6 +158,19 @@
             </div>
             <button class="btn-red" onclick="manageAddress()" style="height: 42px;">执行操作</button>
         </div>
+
+        <!-- 7. 最高权限转移 -->
+        <h3 style="margin-top:20px; color: #ef4444;">🔐 最高权限转移 (Owner)</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label>新 Owner 钱包地址 (请仔细核对)</label>
+                <input type="text" id="inputNewOwner" placeholder="0x...">
+            </div>
+            <button class="btn-red" onclick="transferOwnership()" style="height: 42px;">⚠️ 转移权限</button>
+        </div>
+        <div class="form-row">
+            <button class="btn-blue" onclick="fillSingleWallet()" style="width: 100%; background: #475569;">🔄 一键填入：我当前连接的钱包</button>
+        </div>
     </div>
 </div>
 
@@ -166,6 +179,7 @@
 
     const ABI = [
         "function owner() view returns (address)",
+        "function transferOwnership(address newOwner)",
         "function tradingEnabled() view returns (bool)",
         "function buyTaxBps() view returns (uint256)",
         "function sellTaxBps() view returns (uint256)",
@@ -251,12 +265,10 @@
             const maxTx = await contract.maxTxAmount();
             const maxWallet = await contract.maxWalletAmount();
             
-            // 读取三个钱包地址
             const taxW = await contract.taxWallet();
             const divW = await contract.dividendWallet();
             const mktW = await contract.marketingWallet();
 
-            // 状态渲染
             document.getElementById("dataTaxWallet").innerText = taxW;
             document.getElementById("dataTrading").innerHTML = trading 
                 ? `<span style="color:#10b981">已开启</span> / ${Number(buyTax)/100}% - ${Number(sellTax)/100}%`
@@ -268,7 +280,6 @@
                 btn.innerText = "交易已开启";
             }
             
-            // 表单回填
             document.getElementById("inputBuyTax").value = (Number(buyTax) / 100).toString();
             document.getElementById("inputSellTax").value = (Number(sellTax) / 100).toString();
             document.getElementById("inputHighTax").value = (Number(highTax) / 100).toString();
@@ -335,7 +346,6 @@
         sendTx(() => contract.toggleLimits(enable));
     }
 
-    // 🌟 这里修改成了新的三地址绑定逻辑
     function updateWallets() {
         const tax = document.getElementById("inputTaxWallet").value.trim();
         const div = document.getElementById("inputDividendWallet").value.trim();
@@ -366,6 +376,24 @@
         } else if (action === "exclude_false") {
             sendTx(() => contract.setExcludedFromFee(addr, false));
         }
+    }
+
+    // 🌟 新增：一键填入当前连接钱包功能
+    function fillSingleWallet() {
+        document.getElementById("inputNewOwner").value = userAddress;
+    }
+
+    // 🌟 新增：转移最高权限功能
+    function transferOwnership() {
+        const newOwner = document.getElementById("inputNewOwner").value.trim();
+        if(!ethers.utils.isAddress(newOwner)) return showToast("❌ 格式错误，请输入正确的钱包地址", "t-error");
+        if(newOwner.toLowerCase() === userAddress.toLowerCase()) return showToast("❌ 不能转移给自己", "t-error");
+        
+        // 双重确认，防止误触
+        if(!confirm(`⚠️ 警告：您正在转移最高控制权！\n\n确定要将 Owner 转移给以下地址吗？\n${newOwner}\n\n转移后，您当前的钱包将立刻失去修改税率、拉黑、提现等所有管理权限，且不可逆！`)) return;
+        if(!confirm(`⚠️ 再确认一次！\n\n请仔细核对地址：\n${newOwner}\n\n如果填错地址，您的代币合约将永远无法再被管理！`)) return;
+
+        sendTx(() => contract.transferOwnership(newOwner));
     }
 </script>
 </body>
